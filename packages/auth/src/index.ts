@@ -1,15 +1,14 @@
 import { checkout, polar, portal } from "@polar-sh/better-auth";
 import { db } from "@rediredge/db";
 import * as schema from "@rediredge/db/schema/auth";
-import { betterAuth } from "better-auth";
+import { type BetterAuthOptions, betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { polarClient } from "./lib/payments";
 
-export const auth = betterAuth({
+const options = {
 	database: drizzleAdapter(db, {
 		provider: "pg",
-
 		schema: schema,
 	}),
 	trustedOrigins: [process.env.CORS_ORIGIN || ""],
@@ -37,4 +36,6 @@ export const auth = betterAuth({
 		}),
 		nextCookies(),
 	],
-});
+} satisfies BetterAuthOptions;
+
+export const auth: ReturnType<typeof betterAuth> = betterAuth(options);
