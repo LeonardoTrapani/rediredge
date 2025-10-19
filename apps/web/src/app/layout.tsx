@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "../index.css";
 import Providers from "@/components/providers";
+import Footer from "@/components/ui/footer";
 import Navbar from "@/components/ui/navbar";
 
 const geistSans = Geist({
@@ -30,9 +31,10 @@ export default function RootLayout({
 				className={`${geistSans.variable} ${geistMono.variable} antialiased`}
 			>
 				<Providers>
-					<div className="grid h-svh grid-rows-[auto_1fr]">
+					<div className="grid h-svh grid-rows-[auto_1fr_auto]">
 						<Navbar />
 						{children}
+						<Footer />
 					</div>
 				</Providers>
 			</body>
