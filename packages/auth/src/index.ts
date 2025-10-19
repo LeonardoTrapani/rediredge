@@ -24,7 +24,7 @@ const options = {
 				checkout({
 					products: [
 						{
-							productId: "your-product-id",
+							productId: process.env.POLAR_PRODUCT_ID || "your-product-id",
 							slug: "pro",
 						},
 					],
