@@ -38,42 +38,37 @@ flowchart LR
   %% Shared infra (defined first so other sections can reference)
   subgraph SH[Shared infra]
     R[(Redis read model)]
-    CS[(Shared cert storage)]
   end
 
   %% Control plane
   subgraph CP[Control plane]
-    UI[Dashboard + API\nNext.js]
+    UI[Dashboard + API<br>Next.js]
     PG[(Postgres)]
     OBQ[(Outbox events)]
-    W[Outbox worker]
-    AW[Analytics Worker]
     SW[Sync Worker]
+    AW[Analytics Worker]
     UI --> PG
     UI --> OBQ
-    OBQ --> W
-    W -->|idempotent writes| R
+    OBQ --> SW
+    SW -->|idempotent writes| R
     AW -->|BLPOP logs| R
-    AW -->|batch update| UI
-    R -->|queue events| SW
-    SW -->|update DB| PG
-    PG -->|read config| SW
-    SW -->|sync subdomains| R
+    AW -->|batch update| PG
   end
 
   %% Data plane
   subgraph DP[Data plane]
-    PXY[Proxy\nTLS and ACME]
-    EDGE[Go redirector\nHTTP only]
+    PXY[Proxy<br>TLS and ACME]
+    EDGE[Go redirector<br>HTTP only]
     PXY -->|HTTP| EDGE
     EDGE -->|HGET| R
+    R -->|response| EDGE
     EDGE -->|LPUSH logs| R
   end
 
   C[Client] -->|HTTPS| PXY
   EDGE -->|30x| C
-  PXY --- CS
   UI -->|billing| POLAR[(Polar billing)]
+  AW -->|billing| POLAR
 ```
 
 **Principles**
@@ -81,8 +76,8 @@ flowchart LR
 * The dashboard/API is **never on the hot path** for visitor traffic.
 * Canonical config lives in Postgres; the edge reads a compact **Redis** view.
 * TLS is managed by the **front proxy**; the Go redirector is **HTTP‑only** and stateless.
-* Redirect analytics are logged asynchronously to Redis; a worker processes them in batches to update the API and Polar billing.
-* Bidirectional syncing via the Sync Worker ensures data consistency between Postgres and Redis for configurations and events.
+* Redirect analytics are logged asynchronously to Redis; a worker processes them in batches to update the database and Polar billing.
+* Syncing via the Sync Worker ensures data consistency from Postgres to Redis for configurations.
 
 ---
 
@@ -112,7 +107,7 @@ Self‑hosting is **one command**. We’ll ship **multiple templates**; the defa
 
 * **High availability (optional)**
 
-  * Run multiple proxy instances (sharing certificate storage) and multiple Go instances; put them behind your load balancer. The proxy layer manages renewals; the Go layer scales horizontally.
+  * Run multiple proxy instances and multiple Go instances; put them behind your load balancer. The proxy layer manages TLS; the Go layer scales horizontally.
 
 > Additional templates (Traefik single‑node, Kubernetes with cert‑manager, etc.) will be published as we approach 1.0.
 
@@ -126,7 +121,7 @@ sequenceDiagram
   participant UI as Dashboard (Next.js)
   participant API as API
   participant PG as Postgres (canonical)
-  participant OB as Outbox Worker
+  participant SW as Sync Worker
   participant R as Redis (read model)
   participant GO as Go Redirector
 
@@ -135,13 +130,13 @@ sequenceDiagram
   API->>PG: Tx: insert outbox event (topic + payload)
   PG-->>API: Commit OK
 
-  OB->>PG: Fetch unprocessed events
-  OB->>R: Idempotent UPSERT (HSET map:<apex>:<sub> {..., version})
-  OB->>PG: Mark event processed
+  SW->>PG: Fetch unprocessed events
+  SW->>R: Idempotent UPSERT (HSET map:<apex>:<sub> {..., version})
+  SW->>PG: Mark event processed
 
   GO->>R: HGET map:<apex>:<sub>
   R-->>GO: dest, code, flags, version
-  GO-->>UI: 30x redirect
+  GO-->>C: 30x redirect
 ```
 
 **Key guarantees**
@@ -152,18 +147,6 @@ sequenceDiagram
 
 ---
 
-## Bidirectional Syncing (Redis ↔ Postgres)
-
-The Sync Worker enables bidirectional synchronization between the database and Redis.
-
-It processes a queue of events from Redis, such as analytics logs or external triggers, and updates the Postgres database accordingly. This ensures that operational data from the edge is persisted reliably.
-
-Conversely, it reads configuration data from Postgres, including subdomain settings and redirect rules, and syncs them to Redis to maintain an up-to-date read model for the Go redirector.
-
-This worker operates asynchronously to keep the system in sync without impacting the hot path performance.
-
----
-
 ## Redirect rules & semantics
 
 * **Status codes:** default **308** (permanent) and **307** (temporary). Both preserve HTTP method and body.
@@ -171,11 +154,11 @@ This worker operates asynchronously to keep the system in sync without impacting
 * **Precedence:** exact host match wins; (future) wildcard rules come next; otherwise 404/410.
 * **Reserved labels:** avoid system records like `mail`, `mx`, `autodiscover` if your DNS uses them.
 
-**Example (conceptual)**
+**Example**
 
 ```json
 {
-  "map:example.com:cal": {
+  "redirect:example.com:cal": {
     "to": "https://calendly.com/acme",
     "status": 308,
     "preservePath": false,
@@ -188,26 +171,11 @@ This worker operates asynchronously to keep the system in sync without impacting
 
 ---
 
----
-
-## Certificate lifecycle (proxy‑managed)
-
-* **Issuance & renewal:** The **front proxy** performs ACME challenges and renewals automatically.
-* **On‑demand TLS (optional):** Approve issuance at first handshake via a lightweight **ask endpoint** (we expose this in the control plane). Great for “just point DNS” onboarding.
-* **Wildcards:** Supported via **DNS‑01** (optional `_acme-challenge` CNAME delegation). Useful to cover any subdomain without re‑issuing.
-* **Storage:**
-
-  * **Single‑node self‑host:** local filesystem volume.
-  * **HA self‑host / hosted:** shared storage for certificates (e.g., Redis/S3 backing, or Secrets in Kubernetes).
-* **Security:** Keys are stored by the proxy; use encrypted storage and least‑privilege access. Your Go app never touches private keys.
-
----
-
 ## Scaling & availability
 
 * **Horizontally scalable by design.**
 
-  * Scale the **proxy tier**: add more instances; they share certificate storage and terminate TLS.
+  * Scale the **proxy tier**: add more instances; they terminate TLS.
   * Scale the **Go tier**: add more redirectors; they are stateless and read from Redis.
 * **Multi‑region (optional):**
 
@@ -219,7 +187,7 @@ This worker operates asynchronously to keep the system in sync without impacting
 ## Tech & development
 
 * **Edge:** Front proxy (TLS + ACME + forwarding), Go redirector, Redis read model.
-* **Control:** **Next.js** dashboard, auth, domains & redirects; Postgres (canonical), outbox worker → Redis (read), sync worker ↔ Redis.
+* **Control:** **Next.js** dashboard, auth, domains & redirects; Postgres (canonical), sync worker → Redis (read), analytics worker → Redis (logs).
 * **Monorepo:** Turborepo; Bun scripts for dev/build/lint.
 
 **Common commands**
