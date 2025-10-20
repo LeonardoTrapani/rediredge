@@ -1,0 +1,11 @@
+{
+	"name": "@rediredge/redirector",
+	"scripts": {
+		"build": "go build -o bin/redirector .",
+		"dev": "go run .",
+		"test": "go test ./...",
+		"lint": "go fmt ./... && go vet ./...",
+		"deps": "go mod tidy",
+		"clean": "rm -rf bin/"
+	}
+}

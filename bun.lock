@@ -145,6 +145,9 @@
         "typescript": "^5",
       },
     },
+    "redirector": {
+      "name": "@rediredge/redirector",
+    },
   },
   "catalog": {
     "@polar-sh/better-auth": "^1.1.3",
@@ -522,6 +525,8 @@
     "@rediredge/auth": ["@rediredge/auth@workspace:packages/auth"],
 
     "@rediredge/db": ["@rediredge/db@workspace:packages/db"],
+
+    "@rediredge/redirector": ["@rediredge/redirector@workspace:redirector"],
 
     "@rolldown/binding-android-arm64": ["@rolldown/binding-android-arm64@1.0.0-beta.43", "", { "os": "android", "cpu": "arm64" }, "sha512-TP8bcPOb1s6UmY5syhXrDn9k0XkYcw+XaoylTN4cJxf0JOVS2j682I3aTcpfT51hOFGr2bRwNKN9RZ19XxeQbA=="],
 

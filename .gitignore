@@ -6,6 +6,7 @@ node_modules
 # Build outputs
 dist
 build
+bin
 *.tsbuildinfo
 
 # Environment variables
@@ -71,3 +72,6 @@ temp
 /opencode.json
 /opencode.json.bak
 # END Ruler Generated Files
+
+#go bundle
+redirector/redirector

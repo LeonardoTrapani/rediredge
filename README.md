@@ -47,10 +47,18 @@ flowchart LR
     PG[(Postgres)]
     OBQ[(Outbox events)]
     W[Outbox worker]
+    AW[Analytics Worker]
+    SW[Sync Worker]
     UI --> PG
     UI --> OBQ
     OBQ --> W
     W -->|idempotent writes| R
+    AW -->|BLPOP logs| R
+    AW -->|batch update| UI
+    R -->|queue events| SW
+    SW -->|update DB| PG
+    PG -->|read config| SW
+    SW -->|sync subdomains| R
   end
 
   %% Data plane
@@ -59,11 +67,13 @@ flowchart LR
     EDGE[Go redirector\nHTTP only]
     PXY -->|HTTP| EDGE
     EDGE -->|HGET| R
+    EDGE -->|LPUSH logs| R
   end
 
   C[Client] -->|HTTPS| PXY
   EDGE -->|30x| C
   PXY --- CS
+  UI -->|billing| POLAR[(Polar billing)]
 ```
 
 **Principles**
@@ -71,6 +81,8 @@ flowchart LR
 * The dashboard/API is **never on the hot path** for visitor traffic.
 * Canonical config lives in Postgres; the edge reads a compact **Redis** view.
 * TLS is managed by the **front proxy**; the Go redirector is **HTTP‑only** and stateless.
+* Redirect analytics are logged asynchronously to Redis; a worker processes them in batches to update the API and Polar billing.
+* Bidirectional syncing via the Sync Worker ensures data consistency between Postgres and Redis for configurations and events.
 
 ---
 
@@ -140,6 +152,18 @@ sequenceDiagram
 
 ---
 
+## Bidirectional Syncing (Redis ↔ Postgres)
+
+The Sync Worker enables bidirectional synchronization between the database and Redis.
+
+It processes a queue of events from Redis, such as analytics logs or external triggers, and updates the Postgres database accordingly. This ensures that operational data from the edge is persisted reliably.
+
+Conversely, it reads configuration data from Postgres, including subdomain settings and redirect rules, and syncs them to Redis to maintain an up-to-date read model for the Go redirector.
+
+This worker operates asynchronously to keep the system in sync without impacting the hot path performance.
+
+---
+
 ## Redirect rules & semantics
 
 * **Status codes:** default **308** (permanent) and **307** (temporary). Both preserve HTTP method and body.
@@ -195,7 +219,7 @@ sequenceDiagram
 ## Tech & development
 
 * **Edge:** Front proxy (TLS + ACME + forwarding), Go redirector, Redis read model.
-* **Control:** **Next.js** dashboard, auth, domains & redirects; Postgres (canonical), outbox worker → Redis (read).
+* **Control:** **Next.js** dashboard, auth, domains & redirects; Postgres (canonical), outbox worker → Redis (read), sync worker ↔ Redis.
 * **Monorepo:** Turborepo; Bun scripts for dev/build/lint.
 
 **Common commands**
@@ -207,11 +231,16 @@ bun install
 # dev (Next.js + worker + edge if configured)
 bun run dev
 
-# build all
+# build all (includes Go CLI)
 bun run build
 
 # types across workspace
 bun run check-types
+
+# Go Redirector (from redirector/ workspace)
+bun run --filter=@rediredge/redirector dev
+bun run --filter=@rediredge/redirector test
+bun run --filter=@rediredge/redirector lint
 
 # database (Drizzle)
 bun run db:push
