@@ -12,9 +12,21 @@ This is a monorepo with the following structure:
 - **`packages/auth/`** - Authentication logic and utilities
 - **`packages/db/`** - Database schema and utilities
 
-## Available Scripts
+## Build/Lint/Test Commands
 
-- `bun run dev` - Start all apps in development mode
+- `bun run build` - Build all packages
+- `bun run check` - Lint and format code with Biome
+- `bun run check-types` - Type check across workspace
+- No test framework configured yet; run individual tests manually if added
+
+## Code Style Guidelines
+
+- **Formatting:** Use tabs for indentation, double quotes for strings
+- **Imports:** Organize imports automatically (Biome assist)
+- **Types:** Strict TypeScript; use explicit types, avoid `any`
+- **Naming:** camelCase for variables/functions, PascalCase for components/types, kebab-case for files
+- **Error Handling:** Use try-catch for async operations; throw descriptive errors
+- **Linting:** Follow Biome rules (recommended + custom); no unused vars, inferrable types, etc.
 
 ## Database Commands
 
@@ -46,3 +58,4 @@ Authentication is enabled in this project:
 - Run commands from the root to execute across all workspaces
 - Run workspace-specific commands with `bun run command-name`
 - Turborepo handles build caching and parallel execution
+- **Never run dev commands** (e.g., `bun run dev`)
