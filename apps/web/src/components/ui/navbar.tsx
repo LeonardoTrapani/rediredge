@@ -11,10 +11,7 @@ import {
 } from "./navigation-menu";
 
 export default function Navbar() {
-	const links = [
-		{ to: "/", label: "Home" },
-		{ to: "/p/dashboard", label: "Dashboard" },
-	] as const;
+	const links = [] as const;
 
 	return (
 		<div>
@@ -38,7 +35,6 @@ export default function Navbar() {
 					<UserMenu />
 				</div>
 			</div>
-			<hr />
 		</div>
 	);
 }

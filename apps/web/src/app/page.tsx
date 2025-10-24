@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 
 export default function Home() {
 	return (
-		<div className="flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center px-4 text-center">
+		<div className="flex flex-col items-center justify-center px-4 text-center">
 			<div className="mx-auto max-w-3xl space-y-6">
 				<Badge variant="secondary" className="mx-auto w-fit">
 					In Development
