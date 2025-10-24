@@ -27,6 +27,7 @@
 		"@radix-ui/react-tooltip": "^1.2.8",
 		"@rediredge/api": "workspace:*",
 		"@rediredge/auth": "workspace:*",
+		"@rediredge/db": "workspace:*",
 		"@tanstack/react-form": "^1.12.3",
 		"@tanstack/react-query": "^5.85.5",
 		"@trpc/client": "catalog:",
