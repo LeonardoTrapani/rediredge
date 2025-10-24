@@ -1,9 +1,9 @@
 CREATE TYPE "public"."redirect_code" AS ENUM('301', '302', '307', '308');--> statement-breakpoint
 CREATE TABLE "account" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"id" text PRIMARY KEY NOT NULL,
 	"account_id" text NOT NULL,
 	"provider_id" text NOT NULL,
-	"user_id" uuid NOT NULL,
+	"user_id" text NOT NULL,
 	"access_token" text,
 	"refresh_token" text,
 	"id_token" text,
@@ -16,19 +16,19 @@ CREATE TABLE "account" (
 );
 --> statement-breakpoint
 CREATE TABLE "domain" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"id" text PRIMARY KEY NOT NULL,
 	"apex" text NOT NULL,
 	"verified_at" timestamp with time zone,
 	"verified" boolean DEFAULT false NOT NULL,
 	"enabled" boolean DEFAULT true NOT NULL,
-	"user_id" uuid NOT NULL,
+	"user_id" text NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "domain_apex_unique" UNIQUE("apex")
 );
 --> statement-breakpoint
 CREATE TABLE "outbox" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"id" text PRIMARY KEY NOT NULL,
 	"topic" text NOT NULL,
 	"payload" jsonb NOT NULL,
 	"dedupe_key" text,
@@ -37,8 +37,8 @@ CREATE TABLE "outbox" (
 );
 --> statement-breakpoint
 CREATE TABLE "redirect" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"domain_id" uuid NOT NULL,
+	"id" text PRIMARY KEY NOT NULL,
+	"domain_id" text NOT NULL,
 	"subdomain" text NOT NULL,
 	"destination_url" text NOT NULL,
 	"code" "redirect_code" DEFAULT '308' NOT NULL,
@@ -52,19 +52,19 @@ CREATE TABLE "redirect" (
 );
 --> statement-breakpoint
 CREATE TABLE "session" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"id" text PRIMARY KEY NOT NULL,
 	"expires_at" timestamp with time zone NOT NULL,
 	"token" text NOT NULL,
 	"ip_address" text,
 	"user_agent" text,
-	"user_id" uuid NOT NULL,
+	"user_id" text NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "session_token_unique" UNIQUE("token")
 );
 --> statement-breakpoint
 CREATE TABLE "user" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"id" text PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"email" text NOT NULL,
 	"email_verified" boolean DEFAULT false NOT NULL,
@@ -75,7 +75,7 @@ CREATE TABLE "user" (
 );
 --> statement-breakpoint
 CREATE TABLE "verification" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"id" text PRIMARY KEY NOT NULL,
 	"identifier" text NOT NULL,
 	"value" text NOT NULL,
 	"expires_at" timestamp with time zone NOT NULL,

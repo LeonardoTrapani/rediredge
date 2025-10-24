@@ -9,7 +9,6 @@ import {
 	text,
 	timestamp,
 	uniqueIndex,
-	uuid,
 } from "drizzle-orm/pg-core";
 
 /* ---------------- Enums ---------------- */
@@ -24,7 +23,7 @@ export const redirectCode = pgEnum("redirect_code", [
 /* ---------------- Auth ---------------- */
 
 export const user = pgTable("user", {
-	id: uuid("id").defaultRandom().primaryKey(),
+	id: text("id").primaryKey(),
 	name: text("name").notNull(),
 	email: text("email").notNull().unique(),
 	emailVerified: boolean("email_verified").notNull().default(false),
@@ -40,12 +39,12 @@ export const user = pgTable("user", {
 export const session = pgTable(
 	"session",
 	{
-		id: uuid("id").defaultRandom().primaryKey(),
+		id: text("id").primaryKey(),
 		expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
 		token: text("token").notNull().unique(),
 		ipAddress: text("ip_address"),
 		userAgent: text("user_agent"),
-		userId: uuid("user_id")
+		userId: text("user_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
 		createdAt: timestamp("created_at", { withTimezone: true })
@@ -61,10 +60,10 @@ export const session = pgTable(
 export const account = pgTable(
 	"account",
 	{
-		id: uuid("id").defaultRandom().primaryKey(),
+		id: text("id").primaryKey(),
 		accountId: text("account_id").notNull(),
 		providerId: text("provider_id").notNull(),
-		userId: uuid("user_id")
+		userId: text("user_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
 		accessToken: text("access_token"),
@@ -96,7 +95,7 @@ export const account = pgTable(
 export const verification = pgTable(
 	"verification",
 	{
-		id: uuid("id").defaultRandom().primaryKey(),
+		id: text("id").primaryKey(),
 		identifier: text("identifier").notNull(), // email/phone/etc.
 		value: text("value").notNull(), // OTP/token
 		expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
@@ -121,14 +120,14 @@ export const verification = pgTable(
 export const domain = pgTable(
 	"domain",
 	{
-		id: uuid("id").defaultRandom().primaryKey(),
+		id: text("id").primaryKey(),
 		// apex only, lowercase + punycode at write time
 		apex: text("apex").notNull().unique(), // e.g. "example.com"
 		verifiedAt: timestamp("verified_at", { withTimezone: true }),
 		verified: boolean("verified").notNull().default(false),
 		enabled: boolean("enabled").notNull().default(true),
 
-		userId: uuid("user_id")
+		userId: text("user_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
 
@@ -145,9 +144,9 @@ export const domain = pgTable(
 export const redirect = pgTable(
 	"redirect",
 	{
-		id: uuid("id").defaultRandom().primaryKey(),
+		id: text("id").primaryKey(),
 
-		domainId: uuid("domain_id")
+		domainId: text("domain_id")
 			.notNull()
 			.references(() => domain.id, { onDelete: "cascade" }),
 		subdomain: text("subdomain").notNull(),
@@ -182,7 +181,7 @@ export const redirect = pgTable(
 export const outbox = pgTable(
 	"outbox",
 	{
-		id: uuid("id").defaultRandom().primaryKey(),
+		id: text("id").primaryKey(),
 		topic: text("topic").notNull(), // "redirect.created" | "redirect.updated" | ...
 		payload: jsonb("payload").notNull(),
 		dedupeKey: text("dedupe_key"),
