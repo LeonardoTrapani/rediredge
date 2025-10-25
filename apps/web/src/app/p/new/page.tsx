@@ -478,36 +478,30 @@ export default function NewPage() {
 						/>
 					</Activity>
 					<Activity mode={step >= Step.CnameWildcard ? "visible" : "hidden"}>
-						<form.Subscribe
-							selector={(state) => state.values.domain}
-							children={(domain) => (
-								<Field>
-									<FieldLabel>Step 2: Route Traffic</FieldLabel>
-									<FieldDescription>
-										Add this wildcard CNAME to route all subdomain traffic to
-										our redirector
-									</FieldDescription>
-									<div className="mt-2 rounded-md border bg-muted p-4 font-mono text-sm">
-										<div className="grid gap-1">
-											<div>
-												<span className="text-muted-foreground">Host:</span> *
-											</div>
-											<div>
-												<span className="text-muted-foreground">Type:</span>{" "}
-												CNAME
-											</div>
-											<div>
-												<span className="text-muted-foreground">Value:</span>{" "}
-												redirector.rediredge.io
-											</div>
-											<div>
-												<span className="text-muted-foreground">TTL:</span> 3600
-											</div>
-										</div>
+						<Field>
+							<FieldLabel>Step 2: Route Traffic</FieldLabel>
+							<FieldDescription>
+								Add this wildcard CNAME to route all subdomain traffic to our
+								redirector
+							</FieldDescription>
+							<div className="mt-2 rounded-md border bg-muted p-4 font-mono text-sm">
+								<div className="grid gap-1">
+									<div>
+										<span className="text-muted-foreground">Host:</span> *
 									</div>
-								</Field>
-							)}
-						/>
+									<div>
+										<span className="text-muted-foreground">Type:</span> CNAME
+									</div>
+									<div>
+										<span className="text-muted-foreground">Value:</span>{" "}
+										redirector.rediredge.io
+									</div>
+									<div>
+										<span className="text-muted-foreground">TTL:</span> 3600
+									</div>
+								</div>
+							</div>
+						</Field>
 					</Activity>
 				</FieldGroup>
 				<Field orientation="horizontal" className="mt-8">
