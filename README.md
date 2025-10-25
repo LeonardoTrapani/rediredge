@@ -87,9 +87,9 @@ flowchart LR
 
 Use our **hosted, horizontally‑scaled** service. We operate a proxy tier that manages TLS/ACME and a fleet of Go redirectors. You bring your domains; we handle the rest (billing via Polar). Self‑hosting remains free.
 
-### 2) Self‑host (Docker Compose)
+### 2) Self‑host (Docker Compose)
 
-Self‑hosting is **one command**. We’ll ship **multiple templates**; the default template uses a front proxy in front of the Go app.
+Self‑hosting is **one command**. We'll ship **multiple templates**; the default template uses a front proxy in front of the Go app.
 
 **Template A — Proxy‑in‑front (default)**
 
@@ -101,9 +101,11 @@ Self‑hosting is **one command**. We’ll ship **multiple templates**; the defa
 
 * **What you (the operator) add to DNS**
 
-  * **Routing:** Point your domain(s) to the proxy endpoint (subdomains via **CNAME**, apex via **A/AAAA** or **ALIAS/ANAME** depending on your DNS provider).
-  * **Optional (wildcards):** Add a **CNAME** for `_acme-challenge.example.com` to the validation hostname we provide (enables automated DNS‑01 issuance/renewals).
-  * We’ll provide provider‑specific copy‑paste instructions in the product UI.
+  * **Verification:** Add a **TXT** record at `_rediredge.example.com` with the verification token we provide (proves domain ownership).
+  * **Routing:** Add a wildcard **CNAME** record `*.example.com` pointing to the redirector endpoint we provide (routes all subdomain traffic).
+  * We'll provide provider‑specific copy‑paste instructions in the product UI.
+  
+  > **Note:** Currently supports subdomain redirects only (e.g., `cal.example.com`). Apex/root domain support (e.g., `example.com`) coming in a future release.
 
 * **High availability (optional)**
 
@@ -150,7 +152,7 @@ sequenceDiagram
 ## Redirect rules & semantics
 
 * **Status codes:** default **308** (permanent) and **307** (temporary). Both preserve HTTP method and body.
-* **Path & query:** choose to preserve or rewrite; apex and subdomains supported.
+* **Path & query:** choose to preserve or rewrite; subdomains only (apex support coming soon).
 * **Precedence:** exact host match wins; (future) wildcard rules come next; otherwise 404/410.
 * **Reserved labels:** avoid system records like `mail`, `mx`, `autodiscover` if your DNS uses them.
 
@@ -240,7 +242,7 @@ We default to a proxy‑in‑front pattern and will ship **multiple templates**:
 
 Each template includes:
 
-* DNS instructions (routing + optional `_acme-challenge` delegation),
+* DNS instructions (routing + verification),
 * health checks and basic observability,
 * zero‑downtime rollout guidance.
 

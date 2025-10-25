@@ -48,8 +48,9 @@ import { Switch } from "@/components/ui/switch";
 enum Step {
 	Domain = 0,
 	Redirects = 1,
-	Validate = 2,
-	Submit = 3,
+	TxtVerification = 2,
+	CnameWildcard = 3,
+	Submit = 4,
 }
 
 const labelRE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i; // RFC-style host label
@@ -137,8 +138,8 @@ export default function NewPage() {
 		defaultValues: {
 			domain: "",
 			redirects: [createDefaultRedirect()],
-			txtValidated: false,
-			acmeValidated: false,
+			txtVerified: false,
+			cnameConfigured: false,
 		},
 		onSubmit: async ({ value }) => {
 			console.log("submitted", value);
@@ -443,6 +444,70 @@ export default function NewPage() {
 								</div>
 							)}
 						</form.Field>
+					</Activity>
+					<Activity mode={step >= Step.TxtVerification ? "visible" : "hidden"}>
+						<form.Subscribe
+							selector={(state) => state.values.domain}
+							children={(domain) => (
+								<Field>
+									<FieldLabel>Step 1: Verify Domain Ownership</FieldLabel>
+									<FieldDescription>
+										Add this TXT record to your DNS provider to prove you own{" "}
+										{domain}
+									</FieldDescription>
+									<div className="mt-2 rounded-md border bg-muted p-4 font-mono text-sm">
+										<div className="grid gap-1">
+											<div>
+												<span className="text-muted-foreground">Host:</span>{" "}
+												_rediredge
+											</div>
+											<div>
+												<span className="text-muted-foreground">Type:</span> TXT
+											</div>
+											<div>
+												<span className="text-muted-foreground">Value:</span>{" "}
+												rediredge-verify=abc123token
+											</div>
+											<div>
+												<span className="text-muted-foreground">TTL:</span> 3600
+											</div>
+										</div>
+									</div>
+								</Field>
+							)}
+						/>
+					</Activity>
+					<Activity mode={step >= Step.CnameWildcard ? "visible" : "hidden"}>
+						<form.Subscribe
+							selector={(state) => state.values.domain}
+							children={(domain) => (
+								<Field>
+									<FieldLabel>Step 2: Route Traffic</FieldLabel>
+									<FieldDescription>
+										Add this wildcard CNAME to route all subdomain traffic to
+										our redirector
+									</FieldDescription>
+									<div className="mt-2 rounded-md border bg-muted p-4 font-mono text-sm">
+										<div className="grid gap-1">
+											<div>
+												<span className="text-muted-foreground">Host:</span> *
+											</div>
+											<div>
+												<span className="text-muted-foreground">Type:</span>{" "}
+												CNAME
+											</div>
+											<div>
+												<span className="text-muted-foreground">Value:</span>{" "}
+												redirector.rediredge.io
+											</div>
+											<div>
+												<span className="text-muted-foreground">TTL:</span> 3600
+											</div>
+										</div>
+									</div>
+								</Field>
+							)}
+						/>
 					</Activity>
 				</FieldGroup>
 				<Field orientation="horizontal" className="mt-8">
