@@ -15,6 +15,12 @@ const options = {
 	emailAndPassword: {
 		enabled: true,
 	},
+	session: {
+		cookieCache: {
+			enabled: true,
+			maxAge: 5 * 60,
+		},
+	},
 	plugins: [
 		polar({
 			client: polarClient,
