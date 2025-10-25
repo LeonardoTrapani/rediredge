@@ -18,7 +18,7 @@ export default async function DashboardPage() {
 	if (!domains.length || !domains.find((d) => d.redirect?.id))
 		return nextRedirect("/p/new");
 
-	const { data: customerState } = await authClient.customer.state({
+	const { data: _customerState } = await authClient.customer.state({
 		fetchOptions: { headers: await headers() },
 	});
 

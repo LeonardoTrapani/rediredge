@@ -6,14 +6,15 @@ import { Plus } from "lucide-react";
 import { Activity, useId, useState } from "react";
 import z from "zod";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup, ButtonGroupText } from "@/components/ui/button-group";
 import {
 	Field,
-	FieldDescription,
 	FieldError,
 	FieldGroup,
 	FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 enum Step {
 	Domain = 0,
@@ -68,19 +69,29 @@ const bareDomainSchema = z
 		}
 	});
 
-const redirectSchema = z.object({
-	desinationUrl: z.url(),
-	code: z.enum(redirectCode.enumValues),
-	preservePath: z.boolean(),
-	preserveQuery: z.boolean(),
+const subdomainSchema = z.string();
+const destinationUrlSchema = z.url("Must be a valid URL");
+const redirectCodeSchema = z.enum(redirectCode.enumValues);
+const preservePathSchema = z.boolean();
+const preserveQuerySchema = z.boolean();
+
+const _redirectSchema = z.object({
+	id: z.string(),
+	subdomain: subdomainSchema,
+	desinationUrl: destinationUrlSchema,
+	code: redirectCodeSchema,
+	preservePath: preservePathSchema,
+	preserveQuery: preserveQuerySchema,
 });
 
-const defaultRedirect = {
-	code: "308",
+const createDefaultRedirect = () => ({
+	id: crypto.randomUUID(),
+	subdomain: "",
+	code: "308" as const,
 	desinationUrl: "",
 	preservePath: true,
 	preserveQuery: true,
-} as const;
+});
 
 export default function NewPage() {
 	const [step, setStep] = useState<Step>(Step.Domain);
@@ -89,7 +100,9 @@ export default function NewPage() {
 	const form = useForm({
 		defaultValues: {
 			domain: "",
-			redirects: [defaultRedirect],
+			redirects: [createDefaultRedirect()],
+			txtValidated: false,
+			acmeValidated: false,
 		},
 		onSubmit: async ({ value }) => {
 			if (step < Step.Submit) {
@@ -115,7 +128,7 @@ export default function NewPage() {
 						<form.Field
 							name="domain"
 							validators={{
-								onChange: bareDomainSchema,
+								onSubmit: bareDomainSchema,
 							}}
 							children={(field) => {
 								const isInvalid =
@@ -133,9 +146,6 @@ export default function NewPage() {
 											aria-invalid={isInvalid}
 											placeholder="example.com"
 										/>
-										<FieldDescription>
-											The domain you want to redirect
-										</FieldDescription>
 										{isInvalid && (
 											<FieldError errors={field.state.meta.errors} />
 										)}
@@ -145,10 +155,84 @@ export default function NewPage() {
 						/>
 					</Activity>
 					<Activity mode={step >= Step.Redirects ? "visible" : "hidden"}>
-						dfkja
+						<form.Field name="redirects" mode="array">
+							{(field) => (
+								<div className="space-y-4">
+									{field.state.value.map((redirect, index) => (
+										<div key={redirect.id} className="flex gap-4">
+											<form.Field
+												name={`redirects[${index}].subdomain`}
+												validators={{
+													onSubmit: subdomainSchema,
+												}}
+											>
+												{(subField) => (
+													<Field className="flex-1">
+														<FieldLabel>Subdomain</FieldLabel>
+														<ButtonGroup>
+															<ButtonGroupText asChild>
+																<Label htmlFor={`subdomain-${redirect.id}`}>
+																	https://
+																</Label>
+															</ButtonGroupText>
+															<Input
+																id={`subdomain-${redirect.id}`}
+																value={subField.state.value}
+																onChange={(e) =>
+																	subField.handleChange(e.target.value)
+																}
+																onBlur={subField.handleBlur}
+																placeholder="cal (optional)"
+															/>
+															<ButtonGroupText asChild>
+																<Label htmlFor={`subdomain-${redirect.id}`}>
+																	.leotrapani.com
+																</Label>
+															</ButtonGroupText>
+														</ButtonGroup>
+													</Field>
+												)}
+											</form.Field>
+											<form.Field
+												name={`redirects[${index}].desinationUrl`}
+												validators={{
+													onSubmit: destinationUrlSchema,
+												}}
+											>
+												{(destField) => {
+													const isInvalid =
+														destField.state.meta.isTouched &&
+														!destField.state.meta.isValid;
+
+													return (
+														<Field className="flex-1" data-invalid={isInvalid}>
+															<FieldLabel>Destination URL</FieldLabel>
+															<Input
+																value={destField.state.value}
+																onChange={(e) =>
+																	destField.handleChange(e.target.value)
+																}
+																onBlur={destField.handleBlur}
+																placeholder="https://cal.com/"
+																aria-invalid={isInvalid}
+															/>
+															{isInvalid && (
+																<FieldError
+																	errors={destField.state.meta.errors}
+																/>
+															)}
+														</Field>
+													);
+												}}
+											</form.Field>
+										</div>
+									))}
+								</div>
+							)}
+						</form.Field>
 					</Activity>
 				</FieldGroup>
-				<Field orientation="horizontal" className="mt-6">
+				<Field orientation="horizontal" className="mt-8">
 					{step === Step.Redirects && (
 						<Button
 							variant="outline"
@@ -156,7 +240,7 @@ export default function NewPage() {
 							onClick={() => {
 								form.setFieldValue("redirects", [
 									...(form.getFieldValue("redirects") || []),
-									defaultRedirect,
+									createDefaultRedirect(),
 								]);
 							}}
 						>
@@ -165,7 +249,7 @@ export default function NewPage() {
 						</Button>
 					)}
 					<Button type="submit" form={id}>
-						Submit
+						{step === Step.Submit ? "Submit" : "Next"}
 					</Button>
 				</Field>
 			</form>

@@ -1,5 +1,5 @@
 import { cva, type VariantProps } from "class-variance-authority";
-import { useId, useMemo } from "react";
+import { useMemo } from "react";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
@@ -81,7 +81,7 @@ function Field({
 	...props
 }: React.ComponentProps<"div"> & VariantProps<typeof fieldVariants>) {
 	return (
-		// biome-ignore lint/a11y/useSemanticElements: from shadcn
+		// biome-ignore lint/a11y/useSemanticElements: shadcn
 		<div
 			role="group"
 			data-slot="field"
@@ -189,7 +189,6 @@ function FieldError({
 }: React.ComponentProps<"div"> & {
 	errors?: Array<{ message?: string } | undefined>;
 }) {
-	const id = useId();
 	const content = useMemo(() => {
 		if (children) {
 			return children;
@@ -203,7 +202,7 @@ function FieldError({
 			...new Map(errors.map((error) => [error?.message, error])).values(),
 		];
 
-		// biome-ignore lint/suspicious/noDoubleEquals: from shadcn
+		// biome-ignore lint/suspicious/noDoubleEquals: shadcn
 		if (uniqueErrors?.length == 1) {
 			return uniqueErrors[0]?.message;
 		}
@@ -211,11 +210,13 @@ function FieldError({
 		return (
 			<ul className="ml-4 flex list-disc flex-col gap-1">
 				{uniqueErrors.map(
-					(error) => error?.message && <li key={id}>{error.message}</li>,
+					(error, index) =>
+						// biome-ignore lint/suspicious/noArrayIndexKey: suppress
+						error?.message && <li key={index}>{error.message}</li>,
 				)}
 			</ul>
 		);
-	}, [children, errors, id]);
+	}, [children, errors]);
 
 	if (!content) {
 		return null;
