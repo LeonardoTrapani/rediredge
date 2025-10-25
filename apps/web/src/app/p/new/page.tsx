@@ -2,7 +2,7 @@
 
 import { redirectCode } from "@rediredge/db/schema/domains";
 import { useForm } from "@tanstack/react-form";
-import { Plus } from "lucide-react";
+import { CornerDownRight, MoveRight, Plus, Trash2 } from "lucide-react";
 import { Activity, useId, useState } from "react";
 import z from "zod";
 import { Button } from "@/components/ui/button";
@@ -69,7 +69,7 @@ const bareDomainSchema = z
 		}
 	});
 
-const subdomainSchema = z.string();
+const subdomainSchema = z.string().min(1);
 const destinationUrlSchema = z.url("Must be a valid URL");
 const redirectCodeSchema = z.enum(redirectCode.enumValues);
 const preservePathSchema = z.boolean();
@@ -105,6 +105,7 @@ export default function NewPage() {
 			acmeValidated: false,
 		},
 		onSubmit: async ({ value }) => {
+			console.log("submitted", value);
 			if (step < Step.Submit) {
 				return setStep((prev) => prev + 1);
 			}
@@ -114,7 +115,9 @@ export default function NewPage() {
 	});
 
 	return (
-		<div className="mx-auto w-full max-w-xl">
+		<div
+			className={`mx-auto w-full px-4 transition-all ${step === Step.Domain ? "max-w-md" : "max-w-3xl"}`}
+		>
 			<form
 				id={id}
 				onSubmit={(e) => {
@@ -159,40 +162,62 @@ export default function NewPage() {
 							{(field) => (
 								<div className="space-y-4">
 									{field.state.value.map((redirect, index) => (
-										<div key={redirect.id} className="flex gap-4">
+										<div
+											key={redirect.id}
+											className="group relative flex items-center gap-4 transition-all"
+										>
+											<CornerDownRight className="-translate-y-[3px]" />
 											<form.Field
 												name={`redirects[${index}].subdomain`}
 												validators={{
 													onSubmit: subdomainSchema,
 												}}
 											>
-												{(subField) => (
-													<Field className="flex-1">
-														<FieldLabel>Subdomain</FieldLabel>
-														<ButtonGroup>
-															<ButtonGroupText asChild>
-																<Label htmlFor={`subdomain-${redirect.id}`}>
-																	https://
-																</Label>
-															</ButtonGroupText>
-															<Input
-																id={`subdomain-${redirect.id}`}
-																value={subField.state.value}
-																onChange={(e) =>
-																	subField.handleChange(e.target.value)
-																}
-																onBlur={subField.handleBlur}
-																placeholder="cal (optional)"
-															/>
-															<ButtonGroupText asChild>
-																<Label htmlFor={`subdomain-${redirect.id}`}>
-																	.leotrapani.com
-																</Label>
-															</ButtonGroupText>
-														</ButtonGroup>
-													</Field>
-												)}
+												{(subField) => {
+													const isInvalid =
+														subField.state.meta.isTouched &&
+														!subField.state.meta.isValid;
+
+													return (
+														<Field className="flex-1">
+															<ButtonGroup>
+																<ButtonGroupText asChild>
+																	<Label htmlFor={`subdomain-${redirect.id}`}>
+																		https://
+																	</Label>
+																</ButtonGroupText>
+																<Input
+																	id={`subdomain-${redirect.id}`}
+																	value={subField.state.value ?? ""}
+																	onChange={(e) =>
+																		subField.handleChange(e.target.value)
+																	}
+																	onBlur={subField.handleBlur}
+																	placeholder="cal"
+																/>
+																<form.Subscribe
+																	selector={(state) => state.values.domain}
+																	children={(domain) => (
+																		<ButtonGroupText asChild>
+																			<Label
+																				htmlFor={`subdomain-${redirect.id}`}
+																			>
+																				.{domain}
+																			</Label>
+																		</ButtonGroupText>
+																	)}
+																/>
+															</ButtonGroup>
+															{isInvalid && (
+																<FieldError
+																	errors={subField.state.meta.errors}
+																/>
+															)}
+														</Field>
+													);
+												}}
 											</form.Field>
+											<MoveRight />
 											<form.Field
 												name={`redirects[${index}].desinationUrl`}
 												validators={{
@@ -206,9 +231,8 @@ export default function NewPage() {
 
 													return (
 														<Field className="flex-1" data-invalid={isInvalid}>
-															<FieldLabel>Destination URL</FieldLabel>
 															<Input
-																value={destField.state.value}
+																value={destField.state.value ?? ""}
 																onChange={(e) =>
 																	destField.handleChange(e.target.value)
 																}
@@ -225,6 +249,24 @@ export default function NewPage() {
 													);
 												}}
 											</form.Field>
+											{field.state.value.length > 1 && (
+												<Button
+													type="button"
+													size="icon"
+													variant="outline"
+													className="-right-14 absolute opacity-0 transition-opacity group-hover:opacity-100"
+													onClick={() => {
+														const currentRedirects =
+															form.getFieldValue("redirects") || [];
+														form.setFieldValue(
+															"redirects",
+															currentRedirects.filter((_, i) => i !== index),
+														);
+													}}
+												>
+													<Trash2 className="size-4" />
+												</Button>
+											)}
 										</div>
 									))}
 								</div>
@@ -233,7 +275,7 @@ export default function NewPage() {
 					</Activity>
 				</FieldGroup>
 				<Field orientation="horizontal" className="mt-8">
-					{step === Step.Redirects && (
+					{step >= Step.Redirects && (
 						<Button
 							variant="outline"
 							type="button"
