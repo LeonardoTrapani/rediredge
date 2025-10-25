@@ -20,10 +20,10 @@ export default function Home() {
 					performance, scalability, and ease of use.
 				</p>
 				<div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
-					<Button asChild size="lg">
+					<Button size="lg">
 						<Link href="/login">Get Started</Link>
 					</Button>
-					<Button variant="outline" size="lg" asChild>
+					<Button variant="outline" size="lg">
 						<Link href="https://docs.rediredge.io">Learn More</Link>
 					</Button>
 				</div>
