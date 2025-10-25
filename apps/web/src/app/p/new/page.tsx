@@ -1,7 +1,9 @@
 "use client";
 
-import { redirectCode } from "@rediredge/db/schema/domains";
+import { bareDomainSchema } from "@rediredge/api/schemas/domain";
+import type { redirectCode } from "@rediredge/db/schema/domains";
 import { useForm } from "@tanstack/react-form";
+import { useMutation } from "@tanstack/react-query";
 import {
 	ArrowDown,
 	CornerDownRight,
@@ -11,6 +13,7 @@ import {
 	Trash2,
 } from "lucide-react";
 import { Activity, Fragment, useId, useState } from "react";
+import { toast } from "sonner";
 import z from "zod";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup, ButtonGroupText } from "@/components/ui/button-group";
@@ -44,6 +47,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import { trpc } from "@/utils/trpc";
 
 enum Step {
 	Domain = 0,
@@ -53,66 +57,8 @@ enum Step {
 	Submit = 4,
 }
 
-const labelRE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i; // RFC-style host label
-const tldRE = /^[a-z]{2,63}$/i; // TLD: letters only (IDNs via punycode allowed)
-
-const bareDomainSchema = z
-	.string()
-	.trim()
-	.toLowerCase()
-	.superRefine((value, ctx) => {
-		if (!/^[a-z0-9.-]+$/.test(value)) {
-			ctx.addIssue({
-				code: "custom",
-				message: "Must be a valid domain (e.g. example.com).",
-			});
-			return;
-		}
-
-		const parts = value.split(".");
-		const totalLen = value.length;
-
-		if (parts.length < 2) {
-			ctx.addIssue({
-				code: "custom",
-				message: "Must be a valid domain (e.g. example.com).",
-			});
-			return;
-		}
-
-		if (parts.length > 2) {
-			ctx.addIssue({
-				code: "custom",
-				message:
-					"Subdomains are not allowed; use the base domain only (e.g., example.com).",
-			});
-			return;
-		}
-
-		const [sld, tld] = parts;
-
-		if (totalLen > 253 || !labelRE.test(sld) || !tldRE.test(tld)) {
-			ctx.addIssue({
-				code: "custom",
-				message: "Must be a valid domain (e.g. example.com).",
-			});
-		}
-	});
-
 const subdomainSchema = z.string().min(1);
 const destinationUrlSchema = z.url("Must be a valid URL");
-const redirectCodeSchema = z.enum(redirectCode.enumValues);
-const preservePathSchema = z.boolean();
-const preserveQuerySchema = z.boolean();
-
-const _redirectSchema = z.object({
-	id: z.string(),
-	subdomain: subdomainSchema,
-	desinationUrl: destinationUrlSchema,
-	code: redirectCodeSchema,
-	preservePath: preservePathSchema,
-	preserveQuery: preserveQuerySchema,
-});
 
 const createDefaultRedirect = (): {
 	id: string;
@@ -134,6 +80,16 @@ export default function NewPage() {
 	const [step, setStep] = useState<Step>(Step.Domain);
 	const id = useId();
 
+	const createDomainMutation = useMutation({
+		...trpc.createDomain.mutationOptions(),
+		onSuccess: () => {
+			setStep((prev) => prev + 1);
+		},
+		onError: (error) => {
+			toast.error(error.message);
+		},
+	});
+
 	const form = useForm({
 		defaultValues: {
 			domain: "",
@@ -142,12 +98,22 @@ export default function NewPage() {
 			cnameConfigured: false,
 		},
 		onSubmit: async ({ value }) => {
-			console.log("submitted", value);
+			if (step === Step.Redirects) {
+				return createDomainMutation.mutate({
+					domain: value.domain,
+					redirects: value.redirects.map((r) => ({
+						subdomain: r.subdomain,
+						destinationUrl: r.desinationUrl,
+						code: r.code,
+						preservePath: r.preservePath,
+						preserveQuery: r.preserveQuery,
+					})),
+				});
+			}
+
 			if (step < Step.Submit) {
 				return setStep((prev) => prev + 1);
 			}
-
-			console.log("submitted", value);
 		},
 	});
 
@@ -520,7 +486,11 @@ export default function NewPage() {
 							Add Redirect
 						</Button>
 					)}
-					<Button type="submit" form={id}>
+					<Button
+						type="submit"
+						form={id}
+						loading={createDomainMutation.isPending}
+					>
 						{step === Step.Submit ? "Submit" : "Next"}
 					</Button>
 				</Field>

@@ -42,12 +42,13 @@ function Button({
 	variant,
 	size,
 	asChild = false,
-	isLoading = false,
+	loading = false,
 	children,
+	disabled,
 	...props
 }: React.ComponentProps<"button"> &
 	VariantProps<typeof buttonVariants> & {
-		isLoading?: boolean;
+		loading?: boolean;
 		asChild?: boolean;
 	}) {
 	const Comp = asChild ? Slot : "button";
@@ -56,9 +57,10 @@ function Button({
 		<Comp
 			data-slot="button"
 			className={cn(buttonVariants({ variant, size, className }))}
+			disabled={loading || disabled}
 			{...props}
 		>
-			{isLoading && <Spinner />}
+			{loading && <Spinner />}
 			{children}
 		</Comp>
 	);
