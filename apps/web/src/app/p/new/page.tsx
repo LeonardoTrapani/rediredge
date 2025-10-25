@@ -2,19 +2,46 @@
 
 import { redirectCode } from "@rediredge/db/schema/domains";
 import { useForm } from "@tanstack/react-form";
-import { CornerDownRight, MoveRight, Plus, Trash2 } from "lucide-react";
+import {
+	CornerDownRight,
+	MoveRight,
+	Plus,
+	Settings,
+	Trash2,
+} from "lucide-react";
 import { Activity, useId, useState } from "react";
 import z from "zod";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup, ButtonGroupText } from "@/components/ui/button-group";
 import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
 	Field,
+	FieldContent,
+	FieldDescription,
 	FieldError,
 	FieldGroup,
 	FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import {
+	InputGroup,
+	InputGroupAddon,
+	InputGroupButton,
+	InputGroupInput,
+} from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 
 enum Step {
 	Domain = 0,
@@ -84,10 +111,17 @@ const _redirectSchema = z.object({
 	preserveQuery: preserveQuerySchema,
 });
 
-const createDefaultRedirect = () => ({
+const createDefaultRedirect = (): {
+	id: string;
+	subdomain: string;
+	code: (typeof redirectCode.enumValues)[number];
+	desinationUrl: string;
+	preservePath: boolean;
+	preserveQuery: boolean;
+} => ({
 	id: crypto.randomUUID(),
 	subdomain: "",
-	code: "308" as const,
+	code: "308",
 	desinationUrl: "",
 	preservePath: true,
 	preserveQuery: true,
@@ -231,15 +265,162 @@ export default function NewPage() {
 
 													return (
 														<Field className="flex-1" data-invalid={isInvalid}>
-															<Input
-																value={destField.state.value ?? ""}
-																onChange={(e) =>
-																	destField.handleChange(e.target.value)
-																}
-																onBlur={destField.handleBlur}
-																placeholder="https://cal.com/"
-																aria-invalid={isInvalid}
-															/>
+															<InputGroup>
+																<InputGroupInput
+																	value={destField.state.value ?? ""}
+																	onChange={(e) =>
+																		destField.handleChange(e.target.value)
+																	}
+																	onBlur={destField.handleBlur}
+																	placeholder="https://cal.com/"
+																	aria-invalid={isInvalid}
+																/>
+																<InputGroupAddon align="inline-end">
+																	{field.state.value.length > 1 && (
+																		<InputGroupButton
+																			type="button"
+																			variant="ghost"
+																			size="icon-xs"
+																			aria-label="Remove redirect"
+																			onClick={() => {
+																				const currentRedirects =
+																					form.getFieldValue("redirects") || [];
+																				form.setFieldValue(
+																					"redirects",
+																					currentRedirects.filter(
+																						(_, i) => i !== index,
+																					),
+																				);
+																			}}
+																		>
+																			<Trash2 />
+																		</InputGroupButton>
+																	)}
+																	<DropdownMenu>
+																		<DropdownMenuTrigger asChild>
+																			<InputGroupButton
+																				variant="ghost"
+																				aria-label="Advanced settings"
+																				size="icon-xs"
+																			>
+																				<Settings />
+																			</InputGroupButton>
+																		</DropdownMenuTrigger>
+																		<DropdownMenuContent
+																			align="end"
+																			className="w-64 p-3"
+																		>
+																			<form.Field
+																				name={`redirects[${index}].code`}
+																			>
+																				{(codeField) => (
+																					<Field className="mb-3">
+																						<FieldLabel
+																							htmlFor={`redirect-code-${redirect.id}`}
+																						>
+																							Redirect Status
+																						</FieldLabel>
+																						<Select
+																							name={codeField.name}
+																							value={codeField.state.value}
+																							onValueChange={(value) =>
+																								codeField.handleChange(
+																									value as (typeof redirectCode.enumValues)[number],
+																								)
+																							}
+																						>
+																							<SelectTrigger
+																								id={`redirect-code-${redirect.id}`}
+																								className="w-full"
+																							>
+																								<SelectValue />
+																							</SelectTrigger>
+																							<SelectContent>
+																								<SelectItem value="301">
+																									301 - Permanent
+																								</SelectItem>
+																								<SelectItem value="302">
+																									302 - Temporary
+																								</SelectItem>
+																								<SelectItem value="307">
+																									307 - Temporary (Preserve
+																									Method)
+																								</SelectItem>
+																								<SelectItem value="308">
+																									308 - Permanent (Preserve
+																									Method)
+																								</SelectItem>
+																							</SelectContent>
+																						</Select>
+																					</Field>
+																				)}
+																			</form.Field>
+																			<form.Field
+																				name={`redirects[${index}].preservePath`}
+																			>
+																				{(preservePathField) => (
+																					<Field
+																						orientation="horizontal"
+																						className="mb-3 flex items-center justify-between"
+																					>
+																						<FieldContent>
+																							<FieldLabel
+																								htmlFor={`preserve-path-${redirect.id}`}
+																								className="cursor-pointer font-normal"
+																							>
+																								Preserve Path
+																							</FieldLabel>
+																							<FieldDescription className="text-xs">
+																								Keep URL path in redirect
+																							</FieldDescription>
+																						</FieldContent>
+																						<Switch
+																							id={`preserve-path-${redirect.id}`}
+																							checked={
+																								preservePathField.state.value
+																							}
+																							onCheckedChange={
+																								preservePathField.handleChange
+																							}
+																						/>
+																					</Field>
+																				)}
+																			</form.Field>
+																			<form.Field
+																				name={`redirects[${index}].preserveQuery`}
+																			>
+																				{(preserveQueryField) => (
+																					<Field
+																						orientation="horizontal"
+																						className="flex items-center justify-between"
+																					>
+																						<FieldContent>
+																							<FieldLabel
+																								htmlFor={`preserve-query-${redirect.id}`}
+																								className="cursor-pointer font-normal"
+																							>
+																								Preserve Query
+																							</FieldLabel>
+																							<FieldDescription className="text-xs">
+																								Keep query parameters
+																							</FieldDescription>
+																						</FieldContent>
+																						<Switch
+																							id={`preserve-query-${redirect.id}`}
+																							checked={
+																								preserveQueryField.state.value
+																							}
+																							onCheckedChange={
+																								preserveQueryField.handleChange
+																							}
+																						/>
+																					</Field>
+																				)}
+																			</form.Field>
+																		</DropdownMenuContent>
+																	</DropdownMenu>
+																</InputGroupAddon>
+															</InputGroup>
 															{isInvalid && (
 																<FieldError
 																	errors={destField.state.meta.errors}
@@ -249,24 +430,6 @@ export default function NewPage() {
 													);
 												}}
 											</form.Field>
-											{field.state.value.length > 1 && (
-												<Button
-													type="button"
-													size="icon"
-													variant="outline"
-													className="-right-14 absolute opacity-0 transition-opacity group-hover:opacity-100"
-													onClick={() => {
-														const currentRedirects =
-															form.getFieldValue("redirects") || [];
-														form.setFieldValue(
-															"redirects",
-															currentRedirects.filter((_, i) => i !== index),
-														);
-													}}
-												>
-													<Trash2 className="size-4" />
-												</Button>
-											)}
 										</div>
 									))}
 								</div>
