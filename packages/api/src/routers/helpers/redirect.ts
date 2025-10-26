@@ -1,19 +1,19 @@
-import { and, type DbTransaction, eq } from "@rediredge/db";
+//TODO: whenever enabling a redirect (editing), or creating one with enabled true, check if the user has a subscription, if he doesn't give the proper error
+
+import { and, type DbTransaction, eq, sql } from "@rediredge/db";
 import { outbox, redirect } from "@rediredge/db/schema/domains";
 import { TRPCError } from "@trpc/server";
+import type z from "zod";
+import type {
+	createRedirectSchema,
+	deleteRedirectSchema,
+	updateRedirectSchema,
+} from "../../schemas/domain";
 
 export async function createRedirectHelper(
 	tx: DbTransaction,
 	domainData: { id: string; apex: string },
-	input: {
-		id: string;
-		subdomain: string;
-		destinationUrl: string;
-		code: (typeof redirect.$inferInsert)["code"];
-		preservePath: boolean;
-		preserveQuery: boolean;
-		enabled: boolean;
-	},
+	input: z.infer<typeof createRedirectSchema>,
 ) {
 	const existingRedirect = await tx
 		.select()
@@ -48,8 +48,8 @@ export async function createRedirectHelper(
 		id: crypto.randomUUID(),
 		topic: "redirect.created",
 		payload: {
-			id: input.id,
 			apex: domainData.apex,
+			id: input.id,
 			subdomain: input.subdomain,
 			destinationUrl: input.destinationUrl,
 			code: input.code,
@@ -66,32 +66,17 @@ export async function createRedirectHelper(
 
 export async function updateRedirectHelper(
 	tx: DbTransaction,
-	redirectData: {
-		redirect: typeof redirect.$inferSelect;
-		domain: { apex: string };
-	},
-	updates: {
-		subdomain?: string;
-		destinationUrl?: string;
-		code?: (typeof redirect.$inferInsert)["code"];
-		preservePath?: boolean;
-		preserveQuery?: boolean;
-		enabled?: boolean;
-	},
+	updateInput: z.infer<typeof updateRedirectSchema>,
+	domainApex: string,
 ) {
+	const { id: _id, ...updates } = updateInput;
 	const [updated] = await tx
 		.update(redirect)
 		.set({
 			...updates,
-			updatedAt: new Date(),
-			version: redirectData.redirect.version + 1,
+			version: sql`${redirect.version} + 1`,
 		})
-		.where(
-			and(
-				eq(redirect.id, redirectData.redirect.id),
-				eq(redirect.version, redirectData.redirect.version),
-			),
-		)
+		.where(eq(redirect.id, updateInput.id))
 		.returning();
 
 	if (!updated) {
@@ -107,7 +92,7 @@ export async function updateRedirectHelper(
 		topic: "redirect.updated",
 		payload: {
 			id: updated.id,
-			apex: redirectData.domain.apex,
+			apex: domainApex,
 			subdomain: updated.subdomain,
 			destinationUrl: updated.destinationUrl,
 			code: updated.code,
@@ -124,23 +109,18 @@ export async function updateRedirectHelper(
 
 export async function deleteRedirectHelper(
 	tx: DbTransaction,
-	redirectData: {
-		redirect: typeof redirect.$inferSelect;
-		domain: { apex: string };
-	},
+	deleteInput: z.infer<typeof deleteRedirectSchema>,
 ) {
-	await tx.delete(redirect).where(eq(redirect.id, redirectData.redirect.id));
+	await tx.delete(redirect).where(eq(redirect.id, deleteInput.id));
 
 	await tx.insert(outbox).values({
 		id: crypto.randomUUID(),
 		topic: "redirect.deleted",
 		payload: {
-			id: redirectData.redirect.id,
-			apex: redirectData.domain.apex,
-			subdomain: redirectData.redirect.subdomain,
+			id: deleteInput.id,
 		},
-		dedupeKey: `redirect:deleted:${redirectData.redirect.id}`,
+		dedupeKey: `redirect:deleted:${deleteInput.id}`,
 	});
 
-	return { id: redirectData.redirect.id };
+	return { id: deleteInput.id };
 }

@@ -1,6 +1,6 @@
 import { promises as dns } from "node:dns";
-import { and, db, eq, sql } from "@rediredge/db";
-import { domain, outbox, redirect } from "@rediredge/db/schema/domains";
+import { and, db, eq } from "@rediredge/db";
+import { domain, redirect } from "@rediredge/db/schema/domains";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, router } from "../index";
 import {
@@ -10,6 +10,7 @@ import {
 	toggleAllRedirectsSchema,
 	verifyDomainSchema,
 } from "../schemas/domain";
+import { deleteRedirectHelper, updateRedirectHelper } from "./helpers/redirect";
 
 export const domainRouter = router({
 	create: protectedProcedure
@@ -49,20 +50,18 @@ export const domainRouter = router({
 			const [domainData] = await db
 				.select()
 				.from(domain)
-				.where(eq(domain.apex, input.apex))
+				.where(
+					and(
+						eq(domain.apex, input.apex),
+						eq(domain.userId, ctx.session.user.id),
+					),
+				)
 				.limit(1);
 
 			if (!domainData) {
 				throw new TRPCError({
 					code: "NOT_FOUND",
 					message: "Domain not found",
-				});
-			}
-
-			if (domainData.userId !== ctx.session.user.id) {
-				throw new TRPCError({
-					code: "FORBIDDEN",
-					message: "You do not have access to this domain",
 				});
 			}
 
@@ -82,20 +81,18 @@ export const domainRouter = router({
 			const [domainData] = await db
 				.select()
 				.from(domain)
-				.where(eq(domain.apex, input.apex))
+				.where(
+					and(
+						eq(domain.apex, input.apex),
+						eq(domain.userId, ctx.session.user.id),
+					),
+				)
 				.limit(1);
 
 			if (!domainData) {
 				throw new TRPCError({
 					code: "NOT_FOUND",
 					message: "Domain not found",
-				});
-			}
-
-			if (domainData.userId !== ctx.session.user.id) {
-				throw new TRPCError({
-					code: "FORBIDDEN",
-					message: "You do not have access to this domain",
 				});
 			}
 
@@ -145,20 +142,18 @@ export const domainRouter = router({
 			const [domainData] = await db
 				.select()
 				.from(domain)
-				.where(eq(domain.id, input.domainId))
+				.where(
+					and(
+						eq(domain.id, input.domainId),
+						eq(domain.userId, ctx.session.user.id),
+					),
+				)
 				.limit(1);
 
 			if (!domainData) {
 				throw new TRPCError({
 					code: "NOT_FOUND",
 					message: "Domain not found",
-				});
-			}
-
-			if (domainData.userId !== ctx.session.user.id) {
-				throw new TRPCError({
-					code: "FORBIDDEN",
-					message: "You do not have access to this domain",
 				});
 			}
 
@@ -169,16 +164,7 @@ export const domainRouter = router({
 					.where(eq(redirect.domainId, input.domainId));
 
 				for (const redirectData of redirects) {
-					await tx.insert(outbox).values({
-						id: crypto.randomUUID(),
-						topic: "redirect.deleted",
-						payload: {
-							id: redirectData.id,
-							apex: domainData.apex,
-							subdomain: redirectData.subdomain,
-						},
-						dedupeKey: `redirect:deleted:${redirectData.id}`,
-					});
+					deleteRedirectHelper(tx, { id: redirectData.id });
 				}
 
 				await tx.delete(domain).where(eq(domain.id, input.domainId));
@@ -192,7 +178,12 @@ export const domainRouter = router({
 			const [domainData] = await db
 				.select()
 				.from(domain)
-				.where(eq(domain.id, input.domainId))
+				.where(
+					and(
+						eq(domain.id, input.domainId),
+						eq(domain.userId, ctx.session.user.id),
+					),
+				)
 				.limit(1);
 
 			if (!domainData) {
@@ -202,41 +193,18 @@ export const domainRouter = router({
 				});
 			}
 
-			if (domainData.userId !== ctx.session.user.id) {
-				throw new TRPCError({
-					code: "FORBIDDEN",
-					message: "You do not have access to this domain",
-				});
-			}
-
 			await db.transaction(async (tx) => {
-				const updatedRedirects = await tx
-					.update(redirect)
-					.set({
-						enabled: true,
-						updatedAt: new Date(),
-						version: sql`${redirect.version} + 1`,
-					})
-					.where(eq(redirect.domainId, input.domainId))
-					.returning();
+				const redirects = await tx
+					.select()
+					.from(redirect)
+					.where(eq(redirect.domainId, input.domainId));
 
-				for (const updated of updatedRedirects) {
-					await tx.insert(outbox).values({
-						id: crypto.randomUUID(),
-						topic: "redirect.updated",
-						payload: {
-							id: updated.id,
-							apex: domainData.apex,
-							subdomain: updated.subdomain,
-							destinationUrl: updated.destinationUrl,
-							code: updated.code,
-							preservePath: updated.preservePath,
-							preserveQuery: updated.preserveQuery,
-							enabled: updated.enabled,
-							version: updated.version,
-						},
-						dedupeKey: `redirect:updated:${updated.id}:${updated.version}`,
-					});
+				for (const redirect of redirects) {
+					updateRedirectHelper(
+						tx,
+						{ id: redirect.id, enabled: true },
+						domainData.apex,
+					);
 				}
 			});
 
@@ -266,33 +234,17 @@ export const domainRouter = router({
 			}
 
 			await db.transaction(async (tx) => {
-				const updatedRedirects = await tx
-					.update(redirect)
-					.set({
-						enabled: false,
-						updatedAt: new Date(),
-						version: sql`${redirect.version} + 1`,
-					})
-					.where(eq(redirect.domainId, input.domainId))
-					.returning();
+				const redirects = await tx
+					.select()
+					.from(redirect)
+					.where(eq(redirect.domainId, input.domainId));
 
-				for (const updated of updatedRedirects) {
-					await tx.insert(outbox).values({
-						id: crypto.randomUUID(),
-						topic: "redirect.updated",
-						payload: {
-							id: updated.id,
-							apex: domainData.apex,
-							subdomain: updated.subdomain,
-							destinationUrl: updated.destinationUrl,
-							code: updated.code,
-							preservePath: updated.preservePath,
-							preserveQuery: updated.preserveQuery,
-							enabled: updated.enabled,
-							version: updated.version,
-						},
-						dedupeKey: `redirect:updated:${updated.id}:${updated.version}`,
-					});
+				for (const redirect of redirects) {
+					updateRedirectHelper(
+						tx,
+						{ id: redirect.id, enabled: false },
+						domainData.apex,
+					);
 				}
 			});
 

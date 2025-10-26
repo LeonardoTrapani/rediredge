@@ -1,6 +1,5 @@
-//TODO: whenever enabling a redirect (editing), or creating one with enabled true, check if the user has a subscription, if he doesn't give the proper error
-import { db, eq } from "@rediredge/db";
-import { domain, redirect } from "@rediredge/db/schema/domains";
+import { and, db, eq } from "@rediredge/db";
+import { domain } from "@rediredge/db/schema/domains";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, router } from "../index";
 import { batchRedirectOperationSchema } from "../schemas/domain";
@@ -17,20 +16,18 @@ export const redirectRouter = router({
 			const [domainData] = await db
 				.select()
 				.from(domain)
-				.where(eq(domain.id, input.domainId))
+				.where(
+					and(
+						eq(domain.id, input.domainId),
+						eq(domain.userId, ctx.session.user.id),
+					),
+				)
 				.limit(1);
 
 			if (!domainData) {
 				throw new TRPCError({
 					code: "NOT_FOUND",
 					message: "Domain not found",
-				});
-			}
-
-			if (domainData.userId !== ctx.session.user.id) {
-				throw new TRPCError({
-					code: "FORBIDDEN",
-					message: "You do not have access to this domain",
 				});
 			}
 
@@ -52,35 +49,10 @@ export const redirectRouter = router({
 
 				if (input.operations.update) {
 					for (const updateInput of input.operations.update) {
-						const [redirectData] = await tx
-							.select({
-								redirect,
-								domain,
-							})
-							.from(redirect)
-							.innerJoin(domain, eq(redirect.domainId, domain.id))
-							.where(eq(redirect.id, updateInput.id))
-							.limit(1);
-
-						if (!redirectData) {
-							throw new TRPCError({
-								code: "NOT_FOUND",
-								message: `Redirect with id ${updateInput.id} not found`,
-							});
-						}
-
-						if (redirectData.domain.userId !== ctx.session.user.id) {
-							throw new TRPCError({
-								code: "FORBIDDEN",
-								message: `You do not have access to redirect ${updateInput.id}`,
-							});
-						}
-
-						const { id: _id, ...updates } = updateInput;
 						const result = await updateRedirectHelper(
 							tx,
-							redirectData,
-							updates,
+							updateInput,
+							domainData.apex,
 						);
 						updateResults.push(result);
 					}
@@ -88,31 +60,7 @@ export const redirectRouter = router({
 
 				if (input.operations.delete) {
 					for (const deleteInput of input.operations.delete) {
-						const [redirectData] = await tx
-							.select({
-								redirect,
-								domain,
-							})
-							.from(redirect)
-							.innerJoin(domain, eq(redirect.domainId, domain.id))
-							.where(eq(redirect.id, deleteInput.id))
-							.limit(1);
-
-						if (!redirectData) {
-							throw new TRPCError({
-								code: "NOT_FOUND",
-								message: `Redirect with id ${deleteInput.id} not found`,
-							});
-						}
-
-						if (redirectData.domain.userId !== ctx.session.user.id) {
-							throw new TRPCError({
-								code: "FORBIDDEN",
-								message: `You do not have access to redirect ${deleteInput.id}`,
-							});
-						}
-
-						const result = await deleteRedirectHelper(tx, redirectData);
+						const result = await deleteRedirectHelper(tx, deleteInput);
 						deleteResults.push(result);
 					}
 				}
