@@ -31,7 +31,6 @@ export const domain = pgTable(
 		apex: text("apex").notNull().unique(), // e.g. "example.com"
 		verifiedAt: timestamp("verified_at", { withTimezone: true }),
 		verified: boolean("verified").notNull().default(false),
-		enabled: boolean("enabled").notNull().default(true),
 
 		userId: text("user_id")
 			.notNull()

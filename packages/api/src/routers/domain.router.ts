@@ -1,11 +1,13 @@
 import { promises as dns } from "node:dns";
-import { and, db, eq } from "@rediredge/db";
-import { domain, redirect } from "@rediredge/db/schema/domains";
+import { and, db, eq, sql } from "@rediredge/db";
+import { domain, outbox, redirect } from "@rediredge/db/schema/domains";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, router } from "../index";
 import {
 	createDomainSchema,
+	deleteDomainSchema,
 	getDomainSchema,
+	toggleAllRedirectsSchema,
 	verifyDomainSchema,
 } from "../schemas/domain";
 
@@ -136,5 +138,164 @@ export const domainRouter = router({
 						"TXT record not found. Please add the TXT record and wait a few minutes for DNS propagation.",
 				});
 			}
+		}),
+	delete: protectedProcedure
+		.input(deleteDomainSchema)
+		.mutation(async ({ ctx, input }) => {
+			const [domainData] = await db
+				.select()
+				.from(domain)
+				.where(eq(domain.id, input.domainId))
+				.limit(1);
+
+			if (!domainData) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Domain not found",
+				});
+			}
+
+			if (domainData.userId !== ctx.session.user.id) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "You do not have access to this domain",
+				});
+			}
+
+			await db.transaction(async (tx) => {
+				const redirects = await tx
+					.select()
+					.from(redirect)
+					.where(eq(redirect.domainId, input.domainId));
+
+				for (const redirectData of redirects) {
+					await tx.insert(outbox).values({
+						id: crypto.randomUUID(),
+						topic: "redirect.deleted",
+						payload: {
+							id: redirectData.id,
+							apex: domainData.apex,
+							subdomain: redirectData.subdomain,
+						},
+						dedupeKey: `redirect:deleted:${redirectData.id}`,
+					});
+				}
+
+				await tx.delete(domain).where(eq(domain.id, input.domainId));
+			});
+
+			return { success: true };
+		}),
+	enableAllRedirects: protectedProcedure
+		.input(toggleAllRedirectsSchema)
+		.mutation(async ({ ctx, input }) => {
+			const [domainData] = await db
+				.select()
+				.from(domain)
+				.where(eq(domain.id, input.domainId))
+				.limit(1);
+
+			if (!domainData) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Domain not found",
+				});
+			}
+
+			if (domainData.userId !== ctx.session.user.id) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "You do not have access to this domain",
+				});
+			}
+
+			await db.transaction(async (tx) => {
+				const updatedRedirects = await tx
+					.update(redirect)
+					.set({
+						enabled: true,
+						updatedAt: new Date(),
+						version: sql`${redirect.version} + 1`,
+					})
+					.where(eq(redirect.domainId, input.domainId))
+					.returning();
+
+				for (const updated of updatedRedirects) {
+					await tx.insert(outbox).values({
+						id: crypto.randomUUID(),
+						topic: "redirect.updated",
+						payload: {
+							id: updated.id,
+							apex: domainData.apex,
+							subdomain: updated.subdomain,
+							destinationUrl: updated.destinationUrl,
+							code: updated.code,
+							preservePath: updated.preservePath,
+							preserveQuery: updated.preserveQuery,
+							enabled: updated.enabled,
+							version: updated.version,
+						},
+						dedupeKey: `redirect:updated:${updated.id}:${updated.version}`,
+					});
+				}
+			});
+
+			return { success: true };
+		}),
+	disableAllRedirects: protectedProcedure
+		.input(toggleAllRedirectsSchema)
+		.mutation(async ({ ctx, input }) => {
+			const [domainData] = await db
+				.select()
+				.from(domain)
+				.where(eq(domain.id, input.domainId))
+				.limit(1);
+
+			if (!domainData) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Domain not found",
+				});
+			}
+
+			if (domainData.userId !== ctx.session.user.id) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "You do not have access to this domain",
+				});
+			}
+
+			await db.transaction(async (tx) => {
+				const updatedRedirects = await tx
+					.update(redirect)
+					.set({
+						enabled: false,
+						updatedAt: new Date(),
+						version: sql`${redirect.version} + 1`,
+					})
+					.where(eq(redirect.domainId, input.domainId))
+					.returning();
+
+				for (const updated of updatedRedirects) {
+					await tx.insert(outbox).values({
+						id: crypto.randomUUID(),
+						topic: "redirect.updated",
+						payload: {
+							id: updated.id,
+							apex: domainData.apex,
+							subdomain: updated.subdomain,
+							destinationUrl: updated.destinationUrl,
+							code: updated.code,
+							preservePath: updated.preservePath,
+							preserveQuery: updated.preserveQuery,
+							enabled: updated.enabled,
+							version: updated.version,
+						},
+						dedupeKey: `redirect:updated:${updated.id}:${updated.version}`,
+					});
+				}
+			});
+
+			return { success: true };
 		}),
 });

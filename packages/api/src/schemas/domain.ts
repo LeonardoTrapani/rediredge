@@ -129,3 +129,11 @@ export const batchRedirectOperationSchema = z.object({
 		delete: z.array(z.object({ id: z.string() })).optional(),
 	}),
 });
+
+export const deleteDomainSchema = z.object({
+	domainId: z.string(),
+});
+
+export const toggleAllRedirectsSchema = z.object({
+	domainId: z.string(),
+});

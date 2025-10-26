@@ -1,13 +1,9 @@
+//TODO: whenever enabling a redirect (editing), or creating one with enabled true, check if the user has a subscription, if he doesn't give the proper error
 import { db, eq } from "@rediredge/db";
 import { domain, redirect } from "@rediredge/db/schema/domains";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, router } from "../index";
-import {
-	batchRedirectOperationSchema,
-	createRedirectSchema,
-	deleteRedirectSchema,
-	updateRedirectSchema,
-} from "../schemas/domain";
+import { batchRedirectOperationSchema } from "../schemas/domain";
 import {
 	createRedirectHelper,
 	deleteRedirectHelper,
@@ -15,97 +11,6 @@ import {
 } from "./helpers/redirect";
 
 export const redirectRouter = router({
-	create: protectedProcedure
-		.input(createRedirectSchema)
-		.mutation(async ({ ctx, input }) => {
-			const [domainData] = await db
-				.select()
-				.from(domain)
-				.where(eq(domain.id, input.domainId))
-				.limit(1);
-
-			if (!domainData) {
-				throw new TRPCError({
-					code: "NOT_FOUND",
-					message: "Domain not found",
-				});
-			}
-
-			if (domainData.userId !== ctx.session.user.id) {
-				throw new TRPCError({
-					code: "FORBIDDEN",
-					message: "You do not have access to this domain",
-				});
-			}
-
-			return await db.transaction(async (tx) => {
-				return await createRedirectHelper(tx, domainData, input);
-			});
-		}),
-	update: protectedProcedure
-		.input(updateRedirectSchema)
-		.mutation(async ({ ctx, input }) => {
-			const [redirectData] = await db
-				.select({
-					redirect,
-					domain,
-				})
-				.from(redirect)
-				.innerJoin(domain, eq(redirect.domainId, domain.id))
-				.where(eq(redirect.id, input.id))
-				.limit(1);
-
-			if (!redirectData) {
-				throw new TRPCError({
-					code: "NOT_FOUND",
-					message: "Redirect not found",
-				});
-			}
-
-			if (redirectData.domain.userId !== ctx.session.user.id) {
-				throw new TRPCError({
-					code: "FORBIDDEN",
-					message: "You do not have access to this redirect",
-				});
-			}
-
-			const { id: _id, ...updates } = input;
-
-			return await db.transaction(async (tx) => {
-				return await updateRedirectHelper(tx, redirectData, updates);
-			});
-		}),
-	delete: protectedProcedure
-		.input(deleteRedirectSchema)
-		.mutation(async ({ ctx, input }) => {
-			const [redirectData] = await db
-				.select({
-					redirect,
-					domain,
-				})
-				.from(redirect)
-				.innerJoin(domain, eq(redirect.domainId, domain.id))
-				.where(eq(redirect.id, input.id))
-				.limit(1);
-
-			if (!redirectData) {
-				throw new TRPCError({
-					code: "NOT_FOUND",
-					message: "Redirect not found",
-				});
-			}
-
-			if (redirectData.domain.userId !== ctx.session.user.id) {
-				throw new TRPCError({
-					code: "FORBIDDEN",
-					message: "You do not have access to this redirect",
-				});
-			}
-
-			return await db.transaction(async (tx) => {
-				return await deleteRedirectHelper(tx, redirectData);
-			});
-		}),
 	batch: protectedProcedure
 		.input(batchRedirectOperationSchema)
 		.mutation(async ({ ctx, input }) => {

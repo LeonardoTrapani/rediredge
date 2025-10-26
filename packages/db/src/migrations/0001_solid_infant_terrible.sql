@@ -1,0 +1,1 @@
+ALTER TABLE "domain" DROP COLUMN "enabled";
