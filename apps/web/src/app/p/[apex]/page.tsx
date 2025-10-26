@@ -14,6 +14,10 @@ export default function DomainPage({
 	const query = useQuery(trpc.getDomainWithRedirects.queryOptions({ apex }));
 
 	return (
-		<DomainForm domainWithRedirects={query.data} isPending={query.isLoading} />
+		<DomainForm
+			domainWithRedirects={query.data}
+			isPending={query.isLoading}
+			error={query.error}
+		/>
 	);
 }

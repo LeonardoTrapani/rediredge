@@ -219,6 +219,7 @@ bun run db:migrate
 ## Roadmap
 
 * **0.1 (hosted preview):** core redirector, dashboard (Next.js), TXT domain verification, usage metering → Polar billing**.
+* **0.1.5**: redirect verification
 * **0.2**: self‑host Docker Compose template (proxy‑in‑front)
 * **0.3**: easy horizontal scaling
 * **0.4**: metrics dashboard, analytics

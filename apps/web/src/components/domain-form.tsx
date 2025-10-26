@@ -4,7 +4,9 @@ import { bareDomainSchema } from "@rediredge/api/schemas/domain";
 import type { redirectCode } from "@rediredge/db/schema/domains";
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
+import type { TRPCClientErrorLike } from "@trpc/client";
 import {
+	AlertCircle,
 	ArrowDown,
 	CornerDownRight,
 	MoveRight,
@@ -16,6 +18,7 @@ import { useRouter } from "next/navigation";
 import react from "react";
 import { toast } from "sonner";
 import z from "zod";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup, ButtonGroupText } from "@/components/ui/button-group";
 import {
@@ -74,10 +77,12 @@ const createDefaultRedirect = (): Partial<
 export function DomainForm({
 	domainWithRedirects,
 	isPending = false,
+	error,
 }: {
 	domainWithRedirects?: DomainWithRedirects;
 	isPending?: boolean;
 	isSubscribed?: boolean;
+	error?: TRPCClientErrorLike<any> | null;
 }) {
 	const router = useRouter();
 	const { step } = useDomainStep(domainWithRedirects);
@@ -115,7 +120,7 @@ export function DomainForm({
 				const { apex } = await createDomainMutation.mutateAsync({
 					domain: value.domain,
 				});
-				return router.replace(`/p/dashboard/${apex}`);
+				return router.replace(`/p/${apex}`);
 			}
 			if (step === Step.Verification) {
 				await verifyDomainMutation.mutateAsync({
@@ -131,6 +136,25 @@ export function DomainForm({
 		isPending ||
 		createDomainMutation.isPending ||
 		verifyDomainMutation.isPending;
+
+	if (error) {
+		return (
+			<div className="mx-auto mt-44 w-full max-w-md px-4">
+				<Alert variant="destructive">
+					<AlertCircle className="h-4 w-4" />
+					<AlertTitle>Error Loading Domain</AlertTitle>
+					<AlertDescription className="mt-2">
+						{error.message || "Failed to load domain. Please try again."}
+					</AlertDescription>
+				</Alert>
+				<div className="mt-6 flex justify-center">
+					<Button onClick={() => router.push("/p/new")}>
+						Create New Domain
+					</Button>
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div

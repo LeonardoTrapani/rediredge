@@ -1,5 +1,5 @@
 import { promises as dns } from "node:dns";
-import { db, eq } from "@rediredge/db";
+import { and, db, eq } from "@rediredge/db";
 import { domain, redirect } from "@rediredge/db/schema/domains";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, publicProcedure, router } from "../index";
@@ -19,7 +19,12 @@ export const appRouter = router({
 			const existingDomain = await db
 				.select()
 				.from(domain)
-				.where(eq(domain.apex, input.domain))
+				.where(
+					and(
+						eq(domain.apex, input.domain),
+						eq(domain.userId, ctx.session.user.id),
+					),
+				)
 				.limit(1);
 
 			if (existingDomain.length > 0) {
