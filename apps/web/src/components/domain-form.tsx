@@ -47,6 +47,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import {
 	type DomainWithRedirects,
@@ -122,10 +123,14 @@ export function DomainForm({
 				});
 			}
 			if (step === Step.Redirects) {
-				//TODO: send all values to backend, update redirects that were modified, and add the modified or added ones to the outbox, then finally invalidate the query
 			}
 		},
 	});
+
+	const isFormDisabled =
+		isPending ||
+		createDomainMutation.isPending ||
+		verifyDomainMutation.isPending;
 
 	return (
 		<div
@@ -153,16 +158,20 @@ export function DomainForm({
 								return (
 									<Field data-invalid={isInvalid}>
 										<FieldLabel htmlFor={id}>Domain</FieldLabel>
-										<Input
-											id={id}
-											name={field.name}
-											value={field.state.value}
-											disabled={step !== Step.Domain}
-											onBlur={field.handleBlur}
-											onChange={(e) => field.handleChange(e.target.value)}
-											aria-invalid={isInvalid}
-											placeholder="example.com"
-										/>
+										{isPending ? (
+											<Skeleton className="h-10 w-full" />
+										) : (
+											<Input
+												id={id}
+												name={field.name}
+												value={field.state.value}
+												disabled={step !== Step.Domain || isFormDisabled}
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+												aria-invalid={isInvalid}
+												placeholder="example.com"
+											/>
+										)}
 										{isInvalid && (
 											<FieldError errors={field.state.meta.errors} />
 										)}
@@ -175,249 +184,269 @@ export function DomainForm({
 						<form.Field name="redirects" mode="array">
 							{(field) => (
 								<div className="space-y-6 md:space-y-4">
-									{field.state.value.map((redirect, index) => (
-										<react.Fragment key={redirect.id}>
-											{index > 0 && <Separator className="md:hidden" />}
-											<div className="group relative flex flex-col gap-1 transition-all md:flex-row md:items-center md:gap-4">
-												<CornerDownRight className="md:-translate-y-[3px] hidden md:block" />
-												<form.Field
-													name={`redirects[${index}].subdomain`}
-													validators={{
-														onSubmit: subdomainSchema,
-													}}
-												>
-													{(subField) => {
-														const isInvalid =
-															subField.state.meta.isTouched &&
-															!subField.state.meta.isValid;
+									{isPending ? (
+										<div className="flex flex-col gap-1 md:flex-row md:items-center md:gap-4">
+											<CornerDownRight className="md:-translate-y-[3px] hidden md:block" />
+											<Skeleton className="h-10 w-full md:flex-1" />
+											<MoveRight className="hidden md:block" />
+											<Skeleton className="h-10 w-full md:flex-1" />
+										</div>
+									) : (
+										field.state.value.map((redirect, index) => (
+											<react.Fragment key={redirect.id}>
+												{index > 0 && <Separator className="md:hidden" />}
+												<div className="group relative flex flex-col gap-1 transition-all md:flex-row md:items-center md:gap-4">
+													<CornerDownRight className="md:-translate-y-[3px] hidden md:block" />
+													<form.Field
+														name={`redirects[${index}].subdomain`}
+														validators={{
+															onSubmit: subdomainSchema,
+														}}
+													>
+														{(subField) => {
+															const isInvalid =
+																subField.state.meta.isTouched &&
+																!subField.state.meta.isValid;
 
-														return (
-															<Field className="md:flex-1">
-																<ButtonGroup>
-																	<ButtonGroupText asChild>
-																		<Label htmlFor={`subdomain-${redirect.id}`}>
-																			https://
-																		</Label>
-																	</ButtonGroupText>
-																	<Input
-																		id={`subdomain-${redirect.id}`}
-																		value={subField.state.value ?? ""}
-																		onChange={(e) =>
-																			subField.handleChange(e.target.value)
-																		}
-																		onBlur={subField.handleBlur}
-																		placeholder="cal"
-																		aria-invalid={isInvalid}
-																	/>
-																	<form.Subscribe
-																		selector={(state) => state.values.domain}
-																		children={(domain) => (
-																			<ButtonGroupText asChild>
-																				<Label
-																					htmlFor={`subdomain-${redirect.id}`}
-																				>
-																					.{domain}
-																				</Label>
-																			</ButtonGroupText>
-																		)}
-																	/>
-																</ButtonGroup>
-																{isInvalid && (
-																	<FieldError
-																		errors={subField.state.meta.errors}
-																	/>
-																)}
-															</Field>
-														);
-													}}
-												</form.Field>
-												<ArrowDown className="mx-auto size-4 text-muted-foreground md:hidden" />
-												<MoveRight className="hidden md:block" />
-												<form.Field
-													name={`redirects[${index}].destinationUrl`}
-													validators={{
-														onSubmit: destinationUrlSchema,
-													}}
-												>
-													{(destField) => {
-														const isInvalid =
-															destField.state.meta.isTouched &&
-															!destField.state.meta.isValid;
-
-														return (
-															<Field
-																className="md:flex-1"
-																data-invalid={isInvalid}
-															>
-																<InputGroup>
-																	<InputGroupInput
-																		value={destField.state.value ?? ""}
-																		onChange={(e) =>
-																			destField.handleChange(e.target.value)
-																		}
-																		onBlur={destField.handleBlur}
-																		placeholder="https://cal.com/"
-																		aria-invalid={isInvalid}
-																	/>
-																	<InputGroupAddon align="inline-end">
-																		{field.state.value.length > 1 && (
-																			<InputGroupButton
-																				type="button"
-																				variant="ghost"
-																				size="icon-xs"
-																				aria-label="Remove redirect"
-																				onClick={() => {
-																					const currentRedirects =
-																						form.getFieldValue("redirects") ||
-																						[];
-																					form.setFieldValue(
-																						"redirects",
-																						currentRedirects.filter(
-																							(_, i) => i !== index,
-																						),
-																					);
-																				}}
+															return (
+																<Field className="md:flex-1">
+																	<ButtonGroup>
+																		<ButtonGroupText asChild>
+																			<Label
+																				htmlFor={`subdomain-${redirect.id}`}
 																			>
-																				<Trash2 />
-																			</InputGroupButton>
-																		)}
-																		<DropdownMenu>
-																			<DropdownMenuTrigger asChild>
+																				https://
+																			</Label>
+																		</ButtonGroupText>
+																		<Input
+																			id={`subdomain-${redirect.id}`}
+																			value={subField.state.value ?? ""}
+																			onChange={(e) =>
+																				subField.handleChange(e.target.value)
+																			}
+																			onBlur={subField.handleBlur}
+																			placeholder="cal"
+																			aria-invalid={isInvalid}
+																			disabled={isFormDisabled}
+																		/>
+																		<form.Subscribe
+																			selector={(state) => state.values.domain}
+																			children={(domain) => (
+																				<ButtonGroupText asChild>
+																					<Label
+																						htmlFor={`subdomain-${redirect.id}`}
+																					>
+																						.{domain}
+																					</Label>
+																				</ButtonGroupText>
+																			)}
+																		/>
+																	</ButtonGroup>
+																	{isInvalid && (
+																		<FieldError
+																			errors={subField.state.meta.errors}
+																		/>
+																	)}
+																</Field>
+															);
+														}}
+													</form.Field>
+													<ArrowDown className="mx-auto size-4 text-muted-foreground md:hidden" />
+													<MoveRight className="hidden md:block" />
+													<form.Field
+														name={`redirects[${index}].destinationUrl`}
+														validators={{
+															onSubmit: destinationUrlSchema,
+														}}
+													>
+														{(destField) => {
+															const isInvalid =
+																destField.state.meta.isTouched &&
+																!destField.state.meta.isValid;
+
+															return (
+																<Field
+																	className="md:flex-1"
+																	data-invalid={isInvalid}
+																>
+																	<InputGroup>
+																		<InputGroupInput
+																			value={destField.state.value ?? ""}
+																			onChange={(e) =>
+																				destField.handleChange(e.target.value)
+																			}
+																			onBlur={destField.handleBlur}
+																			placeholder="https://cal.com/"
+																			aria-invalid={isInvalid}
+																			disabled={isFormDisabled}
+																		/>
+																		<InputGroupAddon align="inline-end">
+																			{field.state.value.length > 1 && (
 																				<InputGroupButton
+																					type="button"
 																					variant="ghost"
-																					aria-label="Advanced settings"
 																					size="icon-xs"
+																					aria-label="Remove redirect"
+																					disabled={isFormDisabled}
+																					onClick={() => {
+																						const currentRedirects =
+																							form.getFieldValue("redirects") ||
+																							[];
+																						form.setFieldValue(
+																							"redirects",
+																							currentRedirects.filter(
+																								(_, i) => i !== index,
+																							),
+																						);
+																					}}
 																				>
-																					<Settings />
+																					<Trash2 />
 																				</InputGroupButton>
-																			</DropdownMenuTrigger>
-																			<DropdownMenuContent
-																				align="end"
-																				className="w-64 p-3"
-																			>
-																				<form.Field
-																					name={`redirects[${index}].code`}
+																			)}
+																			<DropdownMenu>
+																				<DropdownMenuTrigger asChild>
+																					<InputGroupButton
+																						variant="ghost"
+																						aria-label="Advanced settings"
+																						size="icon-xs"
+																						disabled={isFormDisabled}
+																					>
+																						<Settings />
+																					</InputGroupButton>
+																				</DropdownMenuTrigger>
+																				<DropdownMenuContent
+																					align="end"
+																					className="w-64 p-3"
 																				>
-																					{(codeField) => (
-																						<Field className="mb-3">
-																							<FieldLabel
-																								htmlFor={`redirect-code-${redirect.id}`}
-																							>
-																								Redirect Status
-																							</FieldLabel>
-																							<Select
-																								name={codeField.name}
-																								value={codeField.state.value}
-																								onValueChange={(value) =>
-																									codeField.handleChange(
-																										value as (typeof redirectCode.enumValues)[number],
-																									)
-																								}
-																							>
-																								<SelectTrigger
-																									id={`redirect-code-${redirect.id}`}
-																									className="w-full"
-																								>
-																									<SelectValue />
-																								</SelectTrigger>
-																								<SelectContent>
-																									<SelectItem value="301">
-																										301 - Permanent
-																									</SelectItem>
-																									<SelectItem value="302">
-																										302 - Temporary
-																									</SelectItem>
-																									<SelectItem value="307">
-																										307 - Temporary (Preserve
-																										Method)
-																									</SelectItem>
-																									<SelectItem value="308">
-																										308 - Permanent (Preserve
-																										Method)
-																									</SelectItem>
-																								</SelectContent>
-																							</Select>
-																						</Field>
-																					)}
-																				</form.Field>
-																				<form.Field
-																					name={`redirects[${index}].preservePath`}
-																				>
-																					{(preservePathField) => (
-																						<Field
-																							orientation="horizontal"
-																							className="mb-3 flex items-center justify-between"
-																						>
-																							<FieldContent>
+																					<form.Field
+																						name={`redirects[${index}].code`}
+																					>
+																						{(codeField) => (
+																							<Field className="mb-3">
 																								<FieldLabel
-																									htmlFor={`preserve-path-${redirect.id}`}
-																									className="cursor-pointer font-normal"
+																									htmlFor={`redirect-code-${redirect.id}`}
 																								>
-																									Preserve Path
+																									Redirect Status
 																								</FieldLabel>
-																								<FieldDescription className="text-xs">
-																									Keep URL path in redirect
-																								</FieldDescription>
-																							</FieldContent>
-																							<Switch
-																								id={`preserve-path-${redirect.id}`}
-																								checked={
-																									preservePathField.state.value
-																								}
-																								onCheckedChange={
-																									preservePathField.handleChange
-																								}
-																							/>
-																						</Field>
-																					)}
-																				</form.Field>
-																				<form.Field
-																					name={`redirects[${index}].preserveQuery`}
-																				>
-																					{(preserveQueryField) => (
-																						<Field
-																							orientation="horizontal"
-																							className="flex items-center justify-between"
-																						>
-																							<FieldContent>
-																								<FieldLabel
-																									htmlFor={`preserve-query-${redirect.id}`}
-																									className="cursor-pointer font-normal"
+																								<Select
+																									name={codeField.name}
+																									value={codeField.state.value}
+																									onValueChange={(value) =>
+																										codeField.handleChange(
+																											value as (typeof redirectCode.enumValues)[number],
+																										)
+																									}
+																									disabled={isFormDisabled}
 																								>
-																									Preserve Query
-																								</FieldLabel>
-																								<FieldDescription className="text-xs">
-																									Keep query parameters
-																								</FieldDescription>
-																							</FieldContent>
-																							<Switch
-																								id={`preserve-query-${redirect.id}`}
-																								checked={
-																									preserveQueryField.state.value
-																								}
-																								onCheckedChange={
-																									preserveQueryField.handleChange
-																								}
-																							/>
-																						</Field>
-																					)}
-																				</form.Field>
-																			</DropdownMenuContent>
-																		</DropdownMenu>
-																	</InputGroupAddon>
-																</InputGroup>
-																{isInvalid && (
-																	<FieldError
-																		errors={destField.state.meta.errors}
-																	/>
-																)}
-															</Field>
-														);
-													}}
-												</form.Field>
-											</div>
-										</react.Fragment>
-									))}
+																									<SelectTrigger
+																										id={`redirect-code-${redirect.id}`}
+																										className="w-full"
+																									>
+																										<SelectValue />
+																									</SelectTrigger>
+																									<SelectContent>
+																										<SelectItem value="301">
+																											301 - Permanent
+																										</SelectItem>
+																										<SelectItem value="302">
+																											302 - Temporary
+																										</SelectItem>
+																										<SelectItem value="307">
+																											307 - Temporary (Preserve
+																											Method)
+																										</SelectItem>
+																										<SelectItem value="308">
+																											308 - Permanent (Preserve
+																											Method)
+																										</SelectItem>
+																									</SelectContent>
+																								</Select>
+																							</Field>
+																						)}
+																					</form.Field>
+																					<form.Field
+																						name={`redirects[${index}].preservePath`}
+																					>
+																						{(preservePathField) => (
+																							<Field
+																								orientation="horizontal"
+																								className="mb-3 flex items-center justify-between"
+																							>
+																								<FieldContent>
+																									<FieldLabel
+																										htmlFor={`preserve-path-${redirect.id}`}
+																										className="cursor-pointer font-normal"
+																									>
+																										Preserve Path
+																									</FieldLabel>
+																									<FieldDescription className="text-xs">
+																										Keep URL path in redirect
+																									</FieldDescription>
+																								</FieldContent>
+																								<Switch
+																									id={`preserve-path-${redirect.id}`}
+																									checked={
+																										preservePathField.state
+																											.value
+																									}
+																									onCheckedChange={
+																										preservePathField.handleChange
+																									}
+																									disabled={isFormDisabled}
+																								/>
+																							</Field>
+																						)}
+																					</form.Field>
+																					<form.Field
+																						name={`redirects[${index}].preserveQuery`}
+																					>
+																						{(preserveQueryField) => (
+																							<Field
+																								orientation="horizontal"
+																								className="flex items-center justify-between"
+																							>
+																								<FieldContent>
+																									<FieldLabel
+																										htmlFor={`preserve-query-${redirect.id}`}
+																										className="cursor-pointer font-normal"
+																									>
+																										Preserve Query
+																									</FieldLabel>
+																									<FieldDescription className="text-xs">
+																										Keep query parameters
+																									</FieldDescription>
+																								</FieldContent>
+																								<Switch
+																									id={`preserve-query-${redirect.id}`}
+																									checked={
+																										preserveQueryField.state
+																											.value
+																									}
+																									onCheckedChange={
+																										preserveQueryField.handleChange
+																									}
+																									disabled={isFormDisabled}
+																								/>
+																							</Field>
+																						)}
+																					</form.Field>
+																				</DropdownMenuContent>
+																			</DropdownMenu>
+																		</InputGroupAddon>
+																	</InputGroup>
+																	{isInvalid && (
+																		<FieldError
+																			errors={destField.state.meta.errors}
+																		/>
+																	)}
+																</Field>
+															);
+														}}
+													</form.Field>
+												</div>
+											</react.Fragment>
+										))
+									)}
 								</div>
 							)}
 						</form.Field>
@@ -434,24 +463,30 @@ export function DomainForm({
 										Add this TXT record to your DNS provider to prove you own{" "}
 										{domain}
 									</FieldDescription>
-									<div className="mt-2 rounded-md border bg-muted p-4 font-mono text-sm">
-										<div className="grid gap-1">
-											<div>
-												<span className="text-muted-foreground">Host:</span>{" "}
-												_rediredge
-											</div>
-											<div>
-												<span className="text-muted-foreground">Type:</span> TXT
-											</div>
-											<div>
-												<span className="text-muted-foreground">Value:</span>{" "}
-												rediredge-verify={domainWithRedirects?.id}
-											</div>
-											<div>
-												<span className="text-muted-foreground">TTL:</span> 3600
+									{isPending ? (
+										<Skeleton className="mt-2 h-32 w-full" />
+									) : (
+										<div className="mt-2 rounded-md border bg-muted p-4 font-mono text-sm">
+											<div className="grid gap-1">
+												<div>
+													<span className="text-muted-foreground">Host:</span>{" "}
+													_rediredge
+												</div>
+												<div>
+													<span className="text-muted-foreground">Type:</span>{" "}
+													TXT
+												</div>
+												<div>
+													<span className="text-muted-foreground">Value:</span>{" "}
+													rediredge-verify={domainWithRedirects?.id}
+												</div>
+												<div>
+													<span className="text-muted-foreground">TTL:</span>{" "}
+													3600
+												</div>
 											</div>
 										</div>
-									</div>
+									)}
 								</Field>
 							)}
 						/>
@@ -461,23 +496,27 @@ export function DomainForm({
 								Add this wildcard CNAME to route all subdomain traffic to our
 								redirector
 							</FieldDescription>
-							<div className="mt-2 rounded-md border bg-muted p-4 font-mono text-sm">
-								<div className="grid gap-1">
-									<div>
-										<span className="text-muted-foreground">Host:</span> *
-									</div>
-									<div>
-										<span className="text-muted-foreground">Type:</span> CNAME
-									</div>
-									<div>
-										<span className="text-muted-foreground">Value:</span>{" "}
-										redirector.rediredge.app
-									</div>
-									<div>
-										<span className="text-muted-foreground">TTL:</span> 3600
+							{isPending ? (
+								<Skeleton className="mt-2 h-32 w-full" />
+							) : (
+								<div className="mt-2 rounded-md border bg-muted p-4 font-mono text-sm">
+									<div className="grid gap-1">
+										<div>
+											<span className="text-muted-foreground">Host:</span> *
+										</div>
+										<div>
+											<span className="text-muted-foreground">Type:</span> CNAME
+										</div>
+										<div>
+											<span className="text-muted-foreground">Value:</span>{" "}
+											redirector.rediredge.app
+										</div>
+										<div>
+											<span className="text-muted-foreground">TTL:</span> 3600
+										</div>
 									</div>
 								</div>
-							</div>
+							)}
 						</Field>
 					</react.Activity>
 				</FieldGroup>
@@ -486,6 +525,7 @@ export function DomainForm({
 						<Button
 							variant="outline"
 							type="button"
+							disabled={isFormDisabled}
 							onClick={() => {
 								form.setFieldValue("redirects", [
 									...(form.getFieldValue("redirects") || []),
@@ -500,6 +540,7 @@ export function DomainForm({
 					<Button
 						type="submit"
 						form={id}
+						disabled={isPending}
 						loading={
 							createDomainMutation.isPending || verifyDomainMutation.isPending
 						}
