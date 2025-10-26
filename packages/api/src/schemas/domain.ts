@@ -68,3 +68,7 @@ export const createDomainSchema = z.object({
 export const getDomainSchema = z.object({
 	apex: bareDomainSchema,
 });
+
+export const verifyDomainSchema = z.object({
+	apex: bareDomainSchema,
+});

@@ -1,8 +1,13 @@
+import { promises as dns } from "node:dns";
 import { db, eq } from "@rediredge/db";
 import { domain, redirect } from "@rediredge/db/schema/domains";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, publicProcedure, router } from "../index";
-import { createDomainSchema, getDomainSchema } from "../schemas/domain";
+import {
+	createDomainSchema,
+	getDomainSchema,
+	verifyDomainSchema,
+} from "../schemas/domain";
 
 export const appRouter = router({
 	healthCheck: publicProcedure.query(() => {
@@ -66,6 +71,69 @@ export const appRouter = router({
 				...domainData,
 				redirects,
 			};
+		}),
+	verifyDomain: protectedProcedure
+		.input(verifyDomainSchema)
+		.mutation(async ({ ctx, input }) => {
+			const [domainData] = await db
+				.select()
+				.from(domain)
+				.where(eq(domain.apex, input.apex))
+				.limit(1);
+
+			if (!domainData) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Domain not found",
+				});
+			}
+
+			if (domainData.userId !== ctx.session.user.id) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "You do not have access to this domain",
+				});
+			}
+
+			if (domainData.verified) {
+				return { verified: true };
+			}
+
+			try {
+				const txtRecords = await dns.resolveTxt(`_rediredge.${input.apex}`);
+				const expectedValue = `rediredge-verify=${domainData.id}`;
+				const isVerified = txtRecords
+					.flat()
+					.some((record) => record === expectedValue);
+
+				if (!isVerified) {
+					throw new TRPCError({
+						code: "BAD_REQUEST",
+						message:
+							"TXT record not found or invalid. Please add the TXT record and wait a few minutes for DNS propagation.",
+					});
+				}
+
+				await db
+					.update(domain)
+					.set({
+						verified: true,
+						verifiedAt: new Date(),
+					})
+					.where(eq(domain.id, domainData.id));
+
+				return { verified: true };
+			} catch (error) {
+				if (error instanceof TRPCError) {
+					throw error;
+				}
+
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message:
+						"TXT record not found. Please add the TXT record and wait a few minutes for DNS propagation.",
+				});
+			}
 		}),
 });
 export type AppRouter = typeof appRouter;

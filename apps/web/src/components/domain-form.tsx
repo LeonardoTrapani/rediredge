@@ -87,6 +87,18 @@ export function DomainForm({
 			toast.error(error.message);
 		},
 	});
+	const verifyDomainMutation = useMutation({
+		...trpc.verifyDomain.mutationOptions(),
+		onSuccess: async () => {
+			await queryClient.invalidateQueries({
+				queryKey: trpc.getDomainWithRedirects.queryKey(),
+			});
+			toast.success("Domain verified successfully!");
+		},
+		onError: (error) => {
+			toast.error(error.message);
+		},
+	});
 
 	const form = useForm({
 		defaultValues: {
@@ -105,14 +117,13 @@ export function DomainForm({
 				return router.replace(`/p/dashboard/${apex}`);
 			}
 			if (step === Step.Verification) {
-				//TODO: verify TXT domain and set verified to true and verified at to now
+				await verifyDomainMutation.mutateAsync({
+					apex: value.domain,
+				});
 			}
 			if (step === Step.Redirects) {
-				//TODO: send all values to backend, update redirects that were modified, and add the modified or added ones to the outbox
+				//TODO: send all values to backend, update redirects that were modified, and add the modified or added ones to the outbox, then finally invalidate the query
 			}
-			queryClient.invalidateQueries({
-				queryKey: trpc.getDomainWithRedirects.queryKey(),
-			});
 		},
 	});
 
@@ -489,7 +500,9 @@ export function DomainForm({
 					<Button
 						type="submit"
 						form={id}
-						loading={createDomainMutation.isPending}
+						loading={
+							createDomainMutation.isPending || verifyDomainMutation.isPending
+						}
 					>
 						{step === Step.Domain
 							? "Submit"
