@@ -72,7 +72,16 @@ const destinationUrlSchema = z.url("Must be a valid URL");
 
 const createDefaultRedirect = (
 	isSubscribed?: boolean,
-): Partial<DomainWithRedirects["redirects"][number]> => ({
+): Pick<
+	DomainWithRedirects["redirects"][number],
+	| "id"
+	| "subdomain"
+	| "code"
+	| "destinationUrl"
+	| "preservePath"
+	| "preserveQuery"
+	| "enabled"
+> => ({
 	id: crypto.randomUUID(),
 	subdomain: "",
 	code: "308",
@@ -213,12 +222,13 @@ export function DomainForm({
 						create:
 							created.length > 0
 								? created.map((r) => ({
-										subdomain: r.subdomain || "",
-										destinationUrl: r.destinationUrl || "",
-										code: r.code || "308",
-										preservePath: r.preservePath ?? true,
-										preserveQuery: r.preserveQuery ?? true,
-										enabled: r.enabled ?? true,
+										id: r.id,
+										subdomain: r.subdomain,
+										destinationUrl: r.destinationUrl,
+										code: r.code,
+										preservePath: r.preservePath,
+										preserveQuery: r.preserveQuery,
+										enabled: r.enabled,
 									}))
 								: undefined,
 						update: updated.length > 0 ? updated : undefined,

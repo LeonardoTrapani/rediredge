@@ -103,6 +103,7 @@ export const batchRedirectOperationSchema = z.object({
 		create: z
 			.array(
 				z.object({
+					id: z.uuid(),
 					subdomain: z.string().min(1),
 					destinationUrl: z.url("Must be a valid URL"),
 					code: z.enum(redirectCode.enumValues),

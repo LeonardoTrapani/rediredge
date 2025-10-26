@@ -6,6 +6,7 @@ export async function createRedirectHelper(
 	tx: DbTransaction,
 	domainData: { id: string; apex: string },
 	input: {
+		id: string;
 		subdomain: string;
 		destinationUrl: string;
 		code: (typeof redirect.$inferInsert)["code"];
@@ -14,8 +15,6 @@ export async function createRedirectHelper(
 		enabled: boolean;
 	},
 ) {
-	const redirectId = crypto.randomUUID();
-
 	const existingRedirect = await tx
 		.select()
 		.from(redirect)
@@ -35,7 +34,7 @@ export async function createRedirectHelper(
 	}
 
 	await tx.insert(redirect).values({
-		id: redirectId,
+		id: input.id,
 		domainId: domainData.id,
 		subdomain: input.subdomain,
 		destinationUrl: input.destinationUrl,
@@ -49,7 +48,7 @@ export async function createRedirectHelper(
 		id: crypto.randomUUID(),
 		topic: "redirect.created",
 		payload: {
-			id: redirectId,
+			id: input.id,
 			apex: domainData.apex,
 			subdomain: input.subdomain,
 			destinationUrl: input.destinationUrl,
@@ -59,10 +58,10 @@ export async function createRedirectHelper(
 			enabled: input.enabled,
 			version: 1,
 		},
-		dedupeKey: `redirect:created:${redirectId}`,
+		dedupeKey: `redirect:created:${input.id}`,
 	});
 
-	return { id: redirectId };
+	return { id: input.id };
 }
 
 export async function updateRedirectHelper(
