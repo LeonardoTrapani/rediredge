@@ -65,3 +65,7 @@ export const createDomainSchema = z.object({
 	domain: bareDomainSchema,
 	redirects: z.array(redirectSchema).min(1),
 });
+
+export const getDomainSchema = z.object({
+	apex: bareDomainSchema,
+});

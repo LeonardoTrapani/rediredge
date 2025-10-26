@@ -2,7 +2,7 @@ import { db, eq } from "@rediredge/db";
 import { domain, redirect } from "@rediredge/db/schema/domains";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, publicProcedure, router } from "../index";
-import { createDomainSchema } from "../schemas/domain";
+import { createDomainSchema, getDomainSchema } from "../schemas/domain";
 
 export const appRouter = router({
 	healthCheck: publicProcedure.query(() => {
@@ -45,6 +45,39 @@ export const appRouter = router({
 			);
 
 			return { domainId };
+		}),
+	getDomainWithRedirects: protectedProcedure
+		.input(getDomainSchema)
+		.query(async ({ ctx, input }) => {
+			const [domainData] = await db
+				.select()
+				.from(domain)
+				.where(eq(domain.apex, input.apex))
+				.limit(1);
+
+			if (!domainData) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Domain not found",
+				});
+			}
+
+			if (domainData.userId !== ctx.session.user.id) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "You do not have access to this domain",
+				});
+			}
+
+			const redirects = await db
+				.select()
+				.from(redirect)
+				.where(eq(redirect.domainId, domainData.id));
+
+			return {
+				...domainData,
+				redirects,
+			};
 		}),
 });
 export type AppRouter = typeof appRouter;
