@@ -107,6 +107,27 @@ export function DomainForm({
 		},
 	});
 
+	const createRedirectMutation = useMutation({
+		...trpc.createRedirect.mutationOptions(),
+		onError: (error) => {
+			toast.error(error.message);
+		},
+	});
+
+	const updateRedirectMutation = useMutation({
+		...trpc.updateRedirect.mutationOptions(),
+		onError: (error) => {
+			toast.error(error.message);
+		},
+	});
+
+	const deleteRedirectMutation = useMutation({
+		...trpc.deleteRedirect.mutationOptions(),
+		onError: (error) => {
+			toast.error(error.message);
+		},
+	});
+
 	const form = useForm({
 		defaultValues: {
 			domain: domainWithRedirects ? domainWithRedirects.apex : "",
@@ -129,6 +150,89 @@ export function DomainForm({
 				});
 			}
 			if (step === Step.Redirects) {
+				const current = value.redirects;
+				const initial = domainWithRedirects?.redirects || [];
+
+				const created = current.filter(
+					(r) => !initial.some((i) => i.id === r.id),
+				);
+
+				const updated = current
+					.map((r) => {
+						const original = initial.find((i) => i.id === r.id);
+						if (!original) return null;
+
+						const changes: {
+							id: string;
+							subdomain?: string;
+							destinationUrl?: string;
+							code?: (typeof redirectCode.enumValues)[number];
+							preservePath?: boolean;
+							preserveQuery?: boolean;
+							enabled?: boolean;
+						} = { id: r.id as string };
+
+						if (original.subdomain !== r.subdomain) {
+							changes.subdomain = r.subdomain;
+						}
+						if (original.destinationUrl !== r.destinationUrl) {
+							changes.destinationUrl = r.destinationUrl;
+						}
+						if (original.code !== r.code) {
+							changes.code = r.code;
+						}
+						if (original.preservePath !== r.preservePath) {
+							changes.preservePath = r.preservePath;
+						}
+						if (original.preserveQuery !== r.preserveQuery) {
+							changes.preserveQuery = r.preserveQuery;
+						}
+						if (original.enabled !== r.enabled) {
+							changes.enabled = r.enabled;
+						}
+
+						return Object.keys(changes).length > 1 ? changes : null;
+					})
+					.filter((r): r is NonNullable<typeof r> => r !== null);
+
+				const deleted = initial.filter(
+					(i) => !current.some((r) => r.id === i.id),
+				);
+
+				if (!domainWithRedirects) {
+					toast.error("Domain not found");
+					return;
+				}
+
+				const promises = [
+					...created.map((r) =>
+						createRedirectMutation.mutateAsync({
+							domainId: domainWithRedirects.id,
+							subdomain: r.subdomain || "",
+							destinationUrl: r.destinationUrl || "",
+							code: r.code || "308",
+							preservePath: r.preservePath ?? true,
+							preserveQuery: r.preserveQuery ?? true,
+							enabled: r.enabled ?? true,
+						}),
+					),
+					...updated.map((r) => updateRedirectMutation.mutateAsync(r)),
+					...deleted.map((r) =>
+						deleteRedirectMutation.mutateAsync({ id: r.id }),
+					),
+				];
+
+				if (promises.length < 1) {
+					return toast("Everything is up to date!");
+				}
+
+				await Promise.all(promises);
+
+				await queryClient.invalidateQueries({
+					queryKey: trpc.getDomainWithRedirects.queryKey(),
+				});
+
+				toast.success("Redirects updated successfully!");
 			}
 		},
 	});
@@ -136,7 +240,10 @@ export function DomainForm({
 	const isFormDisabled =
 		isPending ||
 		createDomainMutation.isPending ||
-		verifyDomainMutation.isPending;
+		verifyDomainMutation.isPending ||
+		createRedirectMutation.isPending ||
+		updateRedirectMutation.isPending ||
+		deleteRedirectMutation.isPending;
 
 	if (error) {
 		return (
@@ -559,7 +666,11 @@ export function DomainForm({
 						form={id}
 						disabled={isPending}
 						loading={
-							createDomainMutation.isPending || verifyDomainMutation.isPending
+							createDomainMutation.isPending ||
+							verifyDomainMutation.isPending ||
+							createRedirectMutation.isPending ||
+							updateRedirectMutation.isPending ||
+							deleteRedirectMutation.isPending
 						}
 					>
 						{step === Step.Domain

@@ -72,3 +72,27 @@ export const getDomainSchema = z.object({
 export const verifyDomainSchema = z.object({
 	apex: bareDomainSchema,
 });
+
+export const createRedirectSchema = z.object({
+	domainId: z.string(),
+	subdomain: z.string().min(1),
+	destinationUrl: z.url("Must be a valid URL"),
+	code: z.enum(redirectCode.enumValues),
+	preservePath: z.boolean(),
+	preserveQuery: z.boolean(),
+	enabled: z.boolean(),
+});
+
+export const updateRedirectSchema = z.object({
+	id: z.string(),
+	subdomain: z.string().min(1).optional(),
+	destinationUrl: z.url("Must be a valid URL").optional(),
+	code: z.enum(redirectCode.enumValues).optional(),
+	preservePath: z.boolean().optional(),
+	preserveQuery: z.boolean().optional(),
+	enabled: z.boolean().optional(),
+});
+
+export const deleteRedirectSchema = z.object({
+	id: z.string(),
+});
