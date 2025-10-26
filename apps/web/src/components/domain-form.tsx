@@ -1,5 +1,6 @@
 "use client";
 
+import type { AppRouter } from "@rediredge/api/routers/index";
 import { bareDomainSchema } from "@rediredge/api/schemas/domain";
 import type { redirectCode } from "@rediredge/db/schema/domains";
 import { useForm } from "@tanstack/react-form";
@@ -82,7 +83,7 @@ export function DomainForm({
 	domainWithRedirects?: DomainWithRedirects;
 	isPending?: boolean;
 	isSubscribed?: boolean;
-	error?: TRPCClientErrorLike<any> | null;
+	error?: TRPCClientErrorLike<AppRouter> | null;
 }) {
 	const router = useRouter();
 	const { step } = useDomainStep(domainWithRedirects);
