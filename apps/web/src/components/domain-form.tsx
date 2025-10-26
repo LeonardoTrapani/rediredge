@@ -64,6 +64,7 @@ import {
 	Step,
 	useDomainStep,
 } from "@/hooks/use-domain-step";
+import { authClient } from "@/lib/auth-client";
 import { queryClient, trpc } from "@/utils/trpc";
 
 const subdomainSchema = z.string().min(1);
@@ -472,38 +473,80 @@ export function DomainForm({
 																						name={`redirects[${index}].enabled`}
 																					>
 																						{(enabledField) => (
-																							<Field
-																								orientation="horizontal"
-																								className="mb-3 flex items-center justify-between"
-																							>
-																								<FieldContent>
-																									<FieldLabel
-																										htmlFor={`enabled-${redirect.id}`}
-																										className="cursor-pointer font-normal"
-																									>
-																										Enabled
-																									</FieldLabel>
-																									<FieldDescription className="text-xs">
-																										Enable or disable this
-																										redirect
-																									</FieldDescription>
-																								</FieldContent>
-																								<Switch
-																									id={`enabled-${redirect.id}`}
-																									checked={
-																										enabledField.state.value
-																									}
-																									onCheckedChange={
-																										enabledField.handleChange
-																									}
-																									disabled={
-																										isFormDisabled ||
-																										(!enabledField.state
-																											.value &&
-																											!hasActiveSubscription)
-																									}
-																								/>
-																							</Field>
+																							<>
+																								<Field
+																									orientation="horizontal"
+																									className="mb-3 flex items-center justify-between"
+																								>
+																									<FieldContent>
+																										<FieldLabel
+																											htmlFor={`enabled-${redirect.id}`}
+																											className="cursor-pointer font-normal"
+																										>
+																											Enabled
+																										</FieldLabel>
+																										<FieldDescription className="text-xs">
+																											Enable or disable this
+																											redirect
+																										</FieldDescription>
+																									</FieldContent>
+																									<Switch
+																										id={`enabled-${redirect.id}`}
+																										checked={
+																											enabledField.state.value
+																										}
+																										onCheckedChange={
+																											enabledField.handleChange
+																										}
+																										disabled={
+																											isFormDisabled ||
+																											(!enabledField.state
+																												.value &&
+																												!hasActiveSubscription)
+																										}
+																									/>
+																								</Field>
+																								{!enabledField.state.value &&
+																									!hasActiveSubscription && (
+																										<Alert className="mb-3">
+																											<AlertCircle className="h-4 w-4" />
+																											<AlertTitle>
+																												Payment Method Required
+																											</AlertTitle>
+																											<AlertDescription>
+																												<p className="mb-2 text-xs">
+																													You need to setup your
+																													payment method to
+																													enable redirects.
+																												</p>
+																												<p className="mb-3 text-muted-foreground text-xs">
+																													Please save your
+																													changes before
+																													proceeding.
+																												</p>
+																												<Button
+																													size="sm"
+																													className="w-full"
+																													onClick={async () => {
+																														const apex =
+																															form.getFieldValue(
+																																"domain",
+																															);
+																														sessionStorage.setItem(
+																															"redirectAfterCheckout",
+																															`/p/${apex}`,
+																														);
+																														await authClient.checkout(
+																															{ slug: "pro" },
+																														);
+																													}}
+																												>
+																													Add Payment Method
+																												</Button>
+																											</AlertDescription>
+																										</Alert>
+																									)}
+																							</>
 																						)}
 																					</form.Field>
 																					<form.Field
