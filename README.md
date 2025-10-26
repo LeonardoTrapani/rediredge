@@ -19,14 +19,12 @@
 
 ## What is Rediredge?
 
-Rediredge pairs a **Go data plane** with a **Next.js control plane**. The control plane manages users, domains, and redirect rules; the data plane serves production traffic with a front proxy for TLS and a tiny Go service that issues instant 30x responses.
+Rediredge pairs a **Go data plane** with a **Next.js control plane**. The control plane manages users, domains, and redirect rules; the data plane serves production traffic with a front proxy for TLS and a tiny Go service that issues instant 30x responses based on a redis database (for extremely fast lookups).
 
 * **Data plane (edge):**
-
   * **Front proxy (default: Caddy)** — terminates TLS, obtains & renews certificates (ACME), and forwards HTTP to the app.
   * **Go redirector** — reads a compact lookup model from Redis and returns the redirect immediately.
 * **Control plane (dashboard & API):**
-
   * **Next.js** app for auth, domains, and redirects; persists canonical configuration and publishes a read‑optimized view for the edge.
 
 ---
@@ -107,7 +105,7 @@ Self‑hosting is **one command**. We'll ship **multiple templates**; the defaul
   
   > **Note:** Currently supports subdomain redirects only (e.g., `cal.example.com`). Apex/root domain support (e.g., `example.com`) coming in a future release.
 
-* **High availability (optional)**
+* **Horizontal Scaling (optional)**
 
   * Run multiple proxy instances and multiple Go instances; put them behind your load balancer. The proxy layer manages TLS; the Go layer scales horizontally.
 
@@ -151,10 +149,8 @@ sequenceDiagram
 
 ## Redirect rules & semantics
 
-* **Status codes:** default **308** (permanent) and **307** (temporary). Both preserve HTTP method and body.
+* **Status codes:** default **308** (permanent) and **307** (temporary), also **301**, **302**. Both preserve HTTP method and body.
 * **Path & query:** choose to preserve or rewrite; subdomains only (apex support coming soon).
-* **Precedence:** exact host match wins; (future) wildcard rules come next; otherwise 404/410.
-* **Reserved labels:** avoid system records like `mail`, `mx`, `autodiscover` if your DNS uses them.
 
 **Example**
 
@@ -176,11 +172,10 @@ sequenceDiagram
 ## Scaling & availability
 
 * **Horizontally scalable by design.**
-
   * Scale the **proxy tier**: add more instances; they terminate TLS.
   * Scale the **Go tier**: add more redirectors; they are stateless and read from Redis.
-* **Multi‑region (optional):**
 
+* **Multi‑region (optional):**
   * Deploy proxy + Go in multiple regions; put a DNS policy (e.g., latency‑based) in front.
   * No anycast required for v1; the system still works great from a single region.
 
@@ -223,9 +218,11 @@ bun run db:migrate
 
 ## Roadmap
 
-* **0.1 (hosted preview):** core redirector, dashboard (Next.js), TXT domain verification, usage metering → Polar billing; **self‑host Docker Compose template (proxy‑in‑front)**.
-* **0.2:** additional self‑host templates (Traefik single‑node; Kubernetes with cert‑manager), rebuild job, usage analytics pipeline, basic metrics export.
-* **0.3:** organizations/workspaces, audit log, bulk rules import.
+* **0.1 (hosted preview):** core redirector, dashboard (Next.js), TXT domain verification, usage metering → Polar billing**.
+* **0.2**: self‑host Docker Compose template (proxy‑in‑front)
+* **0.3**: easy horizontal scaling
+* **0.4**: metrics dashboard, analytics
+* **0.5** additional self‑host templates (Traefik single‑node; Kubernetes with cert‑manager), rebuild job, usage analytics pipeline, basic metrics export.
 * **1.0:** full docs, stable product.
 
 > Roadmap is indicative; items may shuffle as we gather feedback.
@@ -240,7 +237,7 @@ We default to a proxy‑in‑front pattern and will ship **multiple templates**:
 * **Kubernetes (Traefik or NGINX) + cert‑manager:** cert‑manager handles ACME (incl. DNS‑01); certs live in **Secrets**; scale proxies/redirectors freely.
 * **Nginx / HAProxy family:** classic stacks using Certbot or acme.sh. Great single‑node story; for HA, share cert storage or use K8s + cert‑manager.
 
-Each template includes:
+Each template will include:
 
 * DNS instructions (routing + verification),
 * health checks and basic observability,
