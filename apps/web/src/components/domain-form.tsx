@@ -433,6 +433,39 @@ export function DomainForm({
 																					className="w-64 p-3"
 																				>
 																					<form.Field
+																						name={`redirects[${index}].enabled`}
+																					>
+																						{(enabledField) => (
+																							<Field
+																								orientation="horizontal"
+																								className="mb-3 flex items-center justify-between"
+																							>
+																								<FieldContent>
+																									<FieldLabel
+																										htmlFor={`enabled-${redirect.id}`}
+																										className="cursor-pointer font-normal"
+																									>
+																										Enabled
+																									</FieldLabel>
+																									<FieldDescription className="text-xs">
+																										Enable or disable this
+																										redirect
+																									</FieldDescription>
+																								</FieldContent>
+																								<Switch
+																									id={`enabled-${redirect.id}`}
+																									checked={
+																										enabledField.state.value
+																									}
+																									onCheckedChange={
+																										enabledField.handleChange
+																									}
+																									disabled={isFormDisabled}
+																								/>
+																							</Field>
+																						)}
+																					</form.Field>
+																					<form.Field
 																						name={`redirects[${index}].code`}
 																					>
 																						{(codeField) => (
