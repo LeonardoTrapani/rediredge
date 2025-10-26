@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -17,6 +18,15 @@ export default function UserMenu() {
 	const router = useRouter();
 	const { data: session, isPending } = authClient.useSession();
 
+	const { data: customerState } = useQuery({
+		queryKey: ["customerState"],
+		queryFn: async () => {
+			const { data } = await authClient.customer.state();
+			return data;
+		},
+		enabled: !!session,
+	});
+
 	if (isPending) {
 		return <Skeleton className="h-9 w-24" />;
 	}
@@ -28,6 +38,10 @@ export default function UserMenu() {
 			</Button>
 		);
 	}
+
+	const hasActiveSubscription =
+		customerState?.activeSubscriptions &&
+		customerState.activeSubscriptions.length > 0;
 
 	return (
 		<DropdownMenu>
@@ -48,9 +62,30 @@ export default function UserMenu() {
 				<DropdownMenuLabel>My Account</DropdownMenuLabel>
 				<DropdownMenuSeparator />
 				<DropdownMenuItem>{session.user.email}</DropdownMenuItem>
+				<DropdownMenuSeparator />
+				<DropdownMenuItem asChild>
+					{hasActiveSubscription ? (
+						<Button
+							variant="ghost"
+							className="w-full"
+							onClick={async () => await authClient.customer.portal()}
+						>
+							Manage Payments
+						</Button>
+					) : (
+						<Button
+							variant="ghost"
+							className="w-full"
+							onClick={async () => await authClient.checkout({ slug: "pro" })}
+						>
+							Setup Payments
+						</Button>
+					)}
+				</DropdownMenuItem>
+				<DropdownMenuSeparator />
 				<DropdownMenuItem asChild>
 					<Button
-						variant="destructive"
+						variant="outline"
 						className="w-full"
 						onClick={() => {
 							authClient.signOut({

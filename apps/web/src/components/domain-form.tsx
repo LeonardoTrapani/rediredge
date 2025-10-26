@@ -130,7 +130,7 @@ export function DomainForm({
 				domainWithRedirects?.redirects &&
 				domainWithRedirects.redirects.length > 0
 					? domainWithRedirects?.redirects
-					: [createDefaultRedirect()],
+					: [createDefaultRedirect(hasActiveSubscription)],
 		},
 		onSubmit: async ({ value }) => {
 			if (step === Step.Domain) {
@@ -763,7 +763,7 @@ export function DomainForm({
 							onClick={() => {
 								form.setFieldValue("redirects", [
 									...(form.getFieldValue("redirects") || []),
-									createDefaultRedirect(),
+									createDefaultRedirect(hasActiveSubscription),
 								]);
 							}}
 						>
