@@ -246,7 +246,7 @@ export function DomainForm({
 
 	if (error) {
 		return (
-			<div className="mx-auto mt-44 w-full max-w-md px-4">
+			<div className="mx-auto mt-28 w-full max-w-md px-4">
 				<Alert variant="destructive">
 					<AlertCircle className="h-4 w-4" />
 					<AlertTitle>Error Loading Domain</AlertTitle>
@@ -273,7 +273,7 @@ export function DomainForm({
 					e.preventDefault();
 					form.handleSubmit();
 				}}
-				className="mt-44"
+				className="mt-28"
 			>
 				<FieldGroup>
 					<react.Activity mode={step >= Step.Domain ? "visible" : "hidden"}>
