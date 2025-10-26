@@ -21,6 +21,13 @@ export const redirectCode = pgEnum("redirect_code", [
 	"308",
 ]);
 
+export const outboxStatus = pgEnum("outbox_status", [
+	"pending",
+	"processing",
+	"done",
+	"failed",
+]);
+
 /* ---------------- Domains & Redirects ---------------- */
 
 export const domain = pgTable(
@@ -90,6 +97,11 @@ export const outbox = pgTable(
 		topic: text("topic").notNull(), // "redirect.created" | "redirect.updated" | ...
 		payload: jsonb("payload").notNull(),
 		dedupeKey: text("dedupe_key"),
+
+		status: outboxStatus("status").notNull().default("pending"),
+		attempts: integer("attempts").notNull().default(0),
+		lastError: text("last_error"),
+
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.notNull()
 			.defaultNow(),
