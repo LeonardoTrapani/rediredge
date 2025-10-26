@@ -1,3 +1,4 @@
+import { checkActiveSubscription } from "@rediredge/auth";
 import { and, db, eq } from "@rediredge/db";
 import { domain } from "@rediredge/db/schema/domains";
 import { TRPCError } from "@trpc/server";
@@ -31,6 +32,18 @@ export const redirectRouter = router({
 				});
 			}
 
+			// Check subscription once for all operations that might enable redirects
+			const hasEnablingOperations =
+				(input.operations.create?.some((op) => op.enabled) ?? false) ||
+				(input.operations.update?.some((op) => op.enabled === true) ?? false);
+
+			let hasActiveSubscription = false;
+			if (hasEnablingOperations) {
+				hasActiveSubscription = await checkActiveSubscription(
+					ctx.session.user.id,
+				);
+			}
+
 			const results = await db.transaction(async (tx) => {
 				const createResults = [];
 				const updateResults = [];
@@ -42,6 +55,7 @@ export const redirectRouter = router({
 							tx,
 							domainData,
 							createInput,
+							hasActiveSubscription,
 						);
 						createResults.push(result);
 					}
@@ -53,6 +67,7 @@ export const redirectRouter = router({
 							tx,
 							updateInput,
 							domainData.apex,
+							hasActiveSubscription,
 						);
 						updateResults.push(result);
 					}

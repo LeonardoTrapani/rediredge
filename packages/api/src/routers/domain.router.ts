@@ -1,4 +1,5 @@
 import { promises as dns } from "node:dns";
+import { checkActiveSubscription } from "@rediredge/auth";
 import { and, db, eq } from "@rediredge/db";
 import { domain, redirect } from "@rediredge/db/schema/domains";
 import { TRPCError } from "@trpc/server";
@@ -193,6 +194,10 @@ export const domainRouter = router({
 				});
 			}
 
+			const hasActiveSubscription = await checkActiveSubscription(
+				ctx.session.user.id,
+			);
+
 			await db.transaction(async (tx) => {
 				const redirects = await tx
 					.select()
@@ -204,6 +209,7 @@ export const domainRouter = router({
 						tx,
 						{ id: redirect.id, enabled: true },
 						domainData.apex,
+						hasActiveSubscription,
 					);
 				}
 			});
@@ -244,6 +250,7 @@ export const domainRouter = router({
 						tx,
 						{ id: redirect.id, enabled: false },
 						domainData.apex,
+						false,
 					);
 				}
 			});

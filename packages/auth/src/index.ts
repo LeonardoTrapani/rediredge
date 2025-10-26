@@ -45,3 +45,25 @@ const options = {
 } satisfies BetterAuthOptions;
 
 export const auth: ReturnType<typeof betterAuth> = betterAuth(options);
+
+export { polarClient } from "./lib/payments";
+
+export async function checkActiveSubscription(userId: string) {
+	try {
+		const customerState = await polarClient.customers.getStateExternal({
+			externalId: userId,
+		});
+		return customerState.activeSubscriptions.length > 0;
+	} catch (error) {
+		// If customer doesn't exist in Polar yet, they don't have a subscription
+		if (
+			error &&
+			typeof error === "object" &&
+			"status" in error &&
+			error.status === 404
+		) {
+			return false;
+		}
+		throw error;
+	}
+}

@@ -1,5 +1,3 @@
-//TODO: whenever enabling a redirect (editing), or creating one with enabled true, check if the user has a subscription, if he doesn't give the proper error
-
 import { and, type DbTransaction, eq, sql } from "@rediredge/db";
 import { outbox, redirect } from "@rediredge/db/schema/domains";
 import { TRPCError } from "@trpc/server";
@@ -14,6 +12,7 @@ export async function createRedirectHelper(
 	tx: DbTransaction,
 	domainData: { id: string; apex: string },
 	input: z.infer<typeof createRedirectSchema>,
+	hasActiveSubscription: boolean,
 ) {
 	const existingRedirect = await tx
 		.select()
@@ -30,6 +29,14 @@ export async function createRedirectHelper(
 		throw new TRPCError({
 			code: "CONFLICT",
 			message: `A redirect with subdomain "${input.subdomain}" already exists`,
+		});
+	}
+
+	// Check subscription if trying to enable the redirect
+	if (input.enabled === true && !hasActiveSubscription) {
+		throw new TRPCError({
+			code: "FORBIDDEN",
+			message: "An active subscription is required to enable redirects",
 		});
 	}
 
@@ -68,8 +75,18 @@ export async function updateRedirectHelper(
 	tx: DbTransaction,
 	updateInput: z.infer<typeof updateRedirectSchema>,
 	domainApex: string,
+	hasActiveSubscription: boolean,
 ) {
 	const { id: _id, ...updates } = updateInput;
+
+	// Check subscription if trying to enable the redirect
+	if (updates.enabled === true && !hasActiveSubscription) {
+		throw new TRPCError({
+			code: "FORBIDDEN",
+			message: "An active subscription is required to enable redirects",
+		});
+	}
+
 	const [updated] = await tx
 		.update(redirect)
 		.set({
