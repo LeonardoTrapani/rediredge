@@ -1,23 +1,23 @@
-"use client";
+import { headers } from "next/headers";
+import { authClient } from "@/lib/auth-client";
+import DomainPage from "./_domainPage";
 
-import { useQuery } from "@tanstack/react-query";
-import { use } from "react";
-import { DomainForm } from "@/components/domain-form";
-import { trpc } from "@/utils/trpc";
-
-export default function DomainPage({
+export default async function Page({
 	params,
 }: {
 	params: Promise<{ apex: string }>;
 }) {
-	const { apex } = use(params);
-	const query = useQuery(trpc.domain.getWithRedirects.queryOptions({ apex }));
+	const { apex } = await params;
 
-	return (
-		<DomainForm
-			domainWithRedirects={query.data}
-			isPending={query.isLoading}
-			error={query.error}
-		/>
-	);
+	const { data: customerState } = await authClient.customer.state({
+		fetchOptions: {
+			headers: await headers(),
+		},
+	});
+
+	const hasProSubscription =
+		customerState?.activeSubscriptions &&
+		customerState?.activeSubscriptions?.length > 0;
+
+	return <DomainPage apex={apex} hasActiveSubscription={hasProSubscription} />;
 }

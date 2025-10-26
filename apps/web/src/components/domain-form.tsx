@@ -69,27 +69,29 @@ import { queryClient, trpc } from "@/utils/trpc";
 const subdomainSchema = z.string().min(1);
 const destinationUrlSchema = z.url("Must be a valid URL");
 
-const createDefaultRedirect = (): Partial<
-	DomainWithRedirects["redirects"][number]
-> => ({
+const createDefaultRedirect = (
+	isSubscribed?: boolean,
+): Partial<DomainWithRedirects["redirects"][number]> => ({
 	id: crypto.randomUUID(),
 	subdomain: "",
 	code: "308",
 	destinationUrl: "",
 	preservePath: true,
 	preserveQuery: true,
-	enabled: false,
+	enabled: isSubscribed ?? false,
 });
 
 export function DomainForm({
 	domainWithRedirects,
 	isPending = false,
 	error,
+	hasActiveSubscription,
 }: {
 	domainWithRedirects?: DomainWithRedirects;
 	isPending?: boolean;
 	isSubscribed?: boolean;
 	error?: TRPCClientErrorLike<AppRouter> | null;
+	hasActiveSubscription?: boolean;
 }) {
 	const router = useRouter();
 	const { step } = useDomainStep(domainWithRedirects);
@@ -494,7 +496,12 @@ export function DomainForm({
 																									onCheckedChange={
 																										enabledField.handleChange
 																									}
-																									disabled={isFormDisabled}
+																									disabled={
+																										isFormDisabled ||
+																										(!enabledField.state
+																											.value &&
+																											!hasActiveSubscription)
+																									}
 																								/>
 																							</Field>
 																						)}
@@ -735,7 +742,7 @@ export function DomainForm({
 							? "Submit"
 							: step === Step.Verification
 								? "Verify"
-								: "Update"}
+								: "Save"}
 					</Button>
 				</Field>
 			</form>
