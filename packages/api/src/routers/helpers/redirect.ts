@@ -7,6 +7,11 @@ import type {
 	deleteRedirectSchema,
 	updateRedirectSchema,
 } from "../../schemas/domain";
+import {
+	redirectCreatedPayloadSchema,
+	redirectDeletedPayloadSchema,
+	redirectUpdatedPayloadSchema,
+} from "../../schemas/outbox";
 
 export async function createRedirectHelper(
 	tx: DbTransaction,
@@ -40,32 +45,44 @@ export async function createRedirectHelper(
 		});
 	}
 
-	await tx.insert(redirect).values({
-		id: input.id,
-		domainId: domainData.id,
-		subdomain: input.subdomain,
-		destinationUrl: input.destinationUrl,
-		code: input.code,
-		preservePath: input.preservePath,
-		preserveQuery: input.preserveQuery,
-		enabled: input.enabled,
-	});
-
-	await tx.insert(outbox).values({
-		id: crypto.randomUUID(),
-		topic: "redirect.created",
-		payload: {
-			apex: domainData.apex,
+	const [created] = await tx
+		.insert(redirect)
+		.values({
 			id: input.id,
+			domainId: domainData.id,
 			subdomain: input.subdomain,
 			destinationUrl: input.destinationUrl,
 			code: input.code,
 			preservePath: input.preservePath,
 			preserveQuery: input.preserveQuery,
 			enabled: input.enabled,
-			version: 1,
-		},
-		dedupeKey: `redirect:created:${input.id}`,
+		})
+		.returning();
+
+	if (!created) {
+		throw new TRPCError({
+			code: "INTERNAL_SERVER_ERROR",
+			message: "Failed to create redirect",
+		});
+	}
+
+	const createdPayload = redirectCreatedPayloadSchema.parse({
+		apex: domainData.apex,
+		id: created.id,
+		subdomain: created.subdomain,
+		destinationUrl: created.destinationUrl,
+		code: created.code,
+		preservePath: created.preservePath,
+		preserveQuery: created.preserveQuery,
+		enabled: created.enabled,
+		version: created.version,
+	});
+
+	await tx.insert(outbox).values({
+		id: crypto.randomUUID(),
+		topic: "redirect.created",
+		payload: createdPayload,
+		dedupeKey: `redirect:created:${created.id}`,
 	});
 
 	return { id: input.id };
@@ -104,20 +121,22 @@ export async function updateRedirectHelper(
 		});
 	}
 
+	const updatedPayload = redirectUpdatedPayloadSchema.parse({
+		id: updated.id,
+		apex: domainApex,
+		subdomain: updated.subdomain,
+		destinationUrl: updated.destinationUrl,
+		code: updated.code,
+		preservePath: updated.preservePath,
+		preserveQuery: updated.preserveQuery,
+		enabled: updated.enabled,
+		version: updated.version,
+	});
+
 	await tx.insert(outbox).values({
 		id: crypto.randomUUID(),
 		topic: "redirect.updated",
-		payload: {
-			id: updated.id,
-			apex: domainApex,
-			subdomain: updated.subdomain,
-			destinationUrl: updated.destinationUrl,
-			code: updated.code,
-			preservePath: updated.preservePath,
-			preserveQuery: updated.preserveQuery,
-			enabled: updated.enabled,
-			version: updated.version,
-		},
+		payload: updatedPayload,
 		dedupeKey: `redirect:updated:${updated.id}:${updated.version}`,
 	});
 
@@ -127,15 +146,21 @@ export async function updateRedirectHelper(
 export async function deleteRedirectHelper(
 	tx: DbTransaction,
 	deleteInput: z.infer<typeof deleteRedirectSchema>,
+	apex: string,
+	subdomain: string,
 ) {
 	await tx.delete(redirect).where(eq(redirect.id, deleteInput.id));
+
+	const deletedPayload = redirectDeletedPayloadSchema.parse({
+		id: deleteInput.id,
+		apex,
+		subdomain,
+	});
 
 	await tx.insert(outbox).values({
 		id: crypto.randomUUID(),
 		topic: "redirect.deleted",
-		payload: {
-			id: deleteInput.id,
-		},
+		payload: deletedPayload,
 		dedupeKey: `redirect:deleted:${deleteInput.id}`,
 	});
 

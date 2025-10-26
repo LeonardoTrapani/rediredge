@@ -165,7 +165,12 @@ export const domainRouter = router({
 					.where(eq(redirect.domainId, input.domainId));
 
 				for (const redirectData of redirects) {
-					await deleteRedirectHelper(tx, { id: redirectData.id });
+					await deleteRedirectHelper(
+						tx,
+						{ id: redirectData.id },
+						domainData.apex,
+						redirectData.subdomain,
+					);
 				}
 
 				await tx.delete(domain).where(eq(domain.id, input.domainId));

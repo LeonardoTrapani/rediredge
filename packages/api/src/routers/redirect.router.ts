@@ -1,6 +1,6 @@
 import { checkActiveSubscription } from "@rediredge/auth";
-import { and, db, eq } from "@rediredge/db";
-import { domain } from "@rediredge/db/schema/domains";
+import { and, db, eq, inArray } from "@rediredge/db";
+import { domain, redirect } from "@rediredge/db/schema/domains";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, router } from "../index";
 import { batchRedirectOperationSchema } from "../schemas/domain";
@@ -74,8 +74,31 @@ export const redirectRouter = router({
 				}
 
 				if (input.operations.delete) {
+					const deleteIds = input.operations.delete.map((d) => d.id);
+					const redirectsToDelete = await tx
+						.select({ id: redirect.id, subdomain: redirect.subdomain })
+						.from(redirect)
+						.where(inArray(redirect.id, deleteIds));
+
+					const redirectMap = new Map(
+						redirectsToDelete.map((r) => [r.id, r.subdomain]),
+					);
+
 					for (const deleteInput of input.operations.delete) {
-						const result = await deleteRedirectHelper(tx, deleteInput);
+						const subdomain = redirectMap.get(deleteInput.id);
+						if (!subdomain) {
+							throw new TRPCError({
+								code: "NOT_FOUND",
+								message: `Redirect with id ${deleteInput.id} not found`,
+							});
+						}
+
+						const result = await deleteRedirectHelper(
+							tx,
+							deleteInput,
+							domainData.apex,
+							subdomain,
+						);
 						deleteResults.push(result);
 					}
 				}
