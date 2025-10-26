@@ -5,7 +5,8 @@
 	"scripts": {
 		"dev": "next dev --turbopack --port=3001",
 		"build": "next build",
-		"start": "next start"
+		"start": "next start",
+		"check-types": "bunx tsc --noEmit"
 	},
 	"dependencies": {
 		"@hookform/resolvers": "^5.2.2",

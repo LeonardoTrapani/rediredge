@@ -9,7 +9,7 @@ export enum Step {
 }
 
 export type DomainWithRedirects =
-	inferRouterOutputs<AppRouter>["getDomainWithRedirects"];
+	inferRouterOutputs<AppRouter>["domain"]["getWithRedirects"];
 
 const getStepBasedOnDomainWithRedirects = (
 	domainWithRedirects?: DomainWithRedirects,

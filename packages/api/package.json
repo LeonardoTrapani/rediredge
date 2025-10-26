@@ -12,7 +12,8 @@
 	},
 	"type": "module",
 	"scripts": {
-		"build": "tsdown"
+		"build": "tsdown",
+		"check-types": "bunx tsc --noEmit"
 	},
 	"devDependencies": {
 		"tsdown": "catalog:"

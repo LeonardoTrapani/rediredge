@@ -89,16 +89,16 @@ export function DomainForm({
 	const { step } = useDomainStep(domainWithRedirects);
 	const id = react.useId();
 	const createDomainMutation = useMutation({
-		...trpc.createDomain.mutationOptions(),
+		...trpc.domain.create.mutationOptions(),
 		onError: (error) => {
 			toast.error(error.message);
 		},
 	});
 	const verifyDomainMutation = useMutation({
-		...trpc.verifyDomain.mutationOptions(),
+		...trpc.domain.verify.mutationOptions(),
 		onSuccess: async () => {
 			await queryClient.invalidateQueries({
-				queryKey: trpc.getDomainWithRedirects.queryKey(),
+				queryKey: trpc.domain.getWithRedirects.queryKey(),
 			});
 			toast.success("Domain verified successfully!");
 		},
@@ -108,7 +108,7 @@ export function DomainForm({
 	});
 
 	const batchRedirectMutation = useMutation({
-		...trpc.batchRedirectOperation.mutationOptions(),
+		...trpc.redirect.batch.mutationOptions(),
 		onError: (error) => {
 			toast.error(error.message);
 		},
@@ -221,7 +221,7 @@ export function DomainForm({
 				});
 
 				await queryClient.invalidateQueries({
-					queryKey: trpc.getDomainWithRedirects.queryKey(),
+					queryKey: trpc.domain.getWithRedirects.queryKey(),
 				});
 
 				toast.success("Redirects updated successfully!");

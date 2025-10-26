@@ -11,7 +11,7 @@ export default function DomainPage({
 	params: Promise<{ apex: string }>;
 }) {
 	const { apex } = use(params);
-	const query = useQuery(trpc.getDomainWithRedirects.queryOptions({ apex }));
+	const query = useQuery(trpc.domain.getWithRedirects.queryOptions({ apex }));
 
 	return (
 		<DomainForm
