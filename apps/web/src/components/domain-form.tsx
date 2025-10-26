@@ -217,7 +217,7 @@ export function DomainForm({
 										</div>
 									) : (
 										field.state.value.map((redirect, index) => (
-											<react.Fragment key={redirect.id}>
+											<react.Fragment key={`${redirect.id}-${index}`}>
 												{index > 0 && <Separator className="md:hidden" />}
 												<div className="group relative flex flex-col gap-1 transition-all md:flex-row md:items-center md:gap-4">
 													<CornerDownRight className="md:-translate-y-[3px] hidden md:block" />
@@ -313,15 +313,7 @@ export function DomainForm({
 																					aria-label="Remove redirect"
 																					disabled={isFormDisabled}
 																					onClick={() => {
-																						const currentRedirects =
-																							form.getFieldValue("redirects") ||
-																							[];
-																						form.setFieldValue(
-																							"redirects",
-																							currentRedirects.filter(
-																								(_, i) => i !== index,
-																							),
-																						);
+																						field.removeValue(index);
 																					}}
 																				>
 																					<Trash2 />
