@@ -632,6 +632,9 @@ export function DomainForm({
 								</div>
 							)}
 						</Field>
+						<div className="text-muted-foreground text-sm">
+							DNS changes may take up to 48 hours to propagate globally.
+						</div>
 					</react.Activity>
 				</FieldGroup>
 				<Field orientation="horizontal" className="mt-8">
