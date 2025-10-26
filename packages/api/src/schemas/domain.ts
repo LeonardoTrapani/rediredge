@@ -96,3 +96,35 @@ export const updateRedirectSchema = z.object({
 export const deleteRedirectSchema = z.object({
 	id: z.string(),
 });
+
+export const batchRedirectOperationSchema = z.object({
+	domainId: z.string(),
+	operations: z.object({
+		create: z
+			.array(
+				z.object({
+					subdomain: z.string().min(1),
+					destinationUrl: z.url("Must be a valid URL"),
+					code: z.enum(redirectCode.enumValues),
+					preservePath: z.boolean(),
+					preserveQuery: z.boolean(),
+					enabled: z.boolean(),
+				}),
+			)
+			.optional(),
+		update: z
+			.array(
+				z.object({
+					id: z.string(),
+					subdomain: z.string().min(1).optional(),
+					destinationUrl: z.url("Must be a valid URL").optional(),
+					code: z.enum(redirectCode.enumValues).optional(),
+					preservePath: z.boolean().optional(),
+					preserveQuery: z.boolean().optional(),
+					enabled: z.boolean().optional(),
+				}),
+			)
+			.optional(),
+		delete: z.array(z.object({ id: z.string() })).optional(),
+	}),
+});

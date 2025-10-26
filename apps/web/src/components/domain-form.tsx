@@ -107,22 +107,8 @@ export function DomainForm({
 		},
 	});
 
-	const createRedirectMutation = useMutation({
-		...trpc.createRedirect.mutationOptions(),
-		onError: (error) => {
-			toast.error(error.message);
-		},
-	});
-
-	const updateRedirectMutation = useMutation({
-		...trpc.updateRedirect.mutationOptions(),
-		onError: (error) => {
-			toast.error(error.message);
-		},
-	});
-
-	const deleteRedirectMutation = useMutation({
-		...trpc.deleteRedirect.mutationOptions(),
+	const batchRedirectMutation = useMutation({
+		...trpc.batchRedirectOperation.mutationOptions(),
 		onError: (error) => {
 			toast.error(error.message);
 		},
@@ -204,29 +190,35 @@ export function DomainForm({
 					return;
 				}
 
-				const promises = [
-					...created.map((r) =>
-						createRedirectMutation.mutateAsync({
-							domainId: domainWithRedirects.id,
-							subdomain: r.subdomain || "",
-							destinationUrl: r.destinationUrl || "",
-							code: r.code || "308",
-							preservePath: r.preservePath ?? true,
-							preserveQuery: r.preserveQuery ?? true,
-							enabled: r.enabled ?? true,
-						}),
-					),
-					...updated.map((r) => updateRedirectMutation.mutateAsync(r)),
-					...deleted.map((r) =>
-						deleteRedirectMutation.mutateAsync({ id: r.id }),
-					),
-				];
-
-				if (promises.length < 1) {
+				if (
+					created.length === 0 &&
+					updated.length === 0 &&
+					deleted.length === 0
+				) {
 					return toast("Everything is up to date!");
 				}
 
-				await Promise.all(promises);
+				await batchRedirectMutation.mutateAsync({
+					domainId: domainWithRedirects.id,
+					operations: {
+						create:
+							created.length > 0
+								? created.map((r) => ({
+										subdomain: r.subdomain || "",
+										destinationUrl: r.destinationUrl || "",
+										code: r.code || "308",
+										preservePath: r.preservePath ?? true,
+										preserveQuery: r.preserveQuery ?? true,
+										enabled: r.enabled ?? true,
+									}))
+								: undefined,
+						update: updated.length > 0 ? updated : undefined,
+						delete:
+							deleted.length > 0
+								? deleted.map((r) => ({ id: r.id }))
+								: undefined,
+					},
+				});
 
 				await queryClient.invalidateQueries({
 					queryKey: trpc.getDomainWithRedirects.queryKey(),
@@ -241,9 +233,7 @@ export function DomainForm({
 		isPending ||
 		createDomainMutation.isPending ||
 		verifyDomainMutation.isPending ||
-		createRedirectMutation.isPending ||
-		updateRedirectMutation.isPending ||
-		deleteRedirectMutation.isPending;
+		batchRedirectMutation.isPending;
 
 	if (error) {
 		return (
@@ -668,9 +658,7 @@ export function DomainForm({
 						loading={
 							createDomainMutation.isPending ||
 							verifyDomainMutation.isPending ||
-							createRedirectMutation.isPending ||
-							updateRedirectMutation.isPending ||
-							deleteRedirectMutation.isPending
+							batchRedirectMutation.isPending
 						}
 					>
 						{step === Step.Domain
