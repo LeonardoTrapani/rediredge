@@ -9,6 +9,7 @@ import type { TRPCClientErrorLike } from "@trpc/client";
 import {
 	AlertCircle,
 	ArrowDown,
+	BanIcon,
 	CornerDownRight,
 	MoveRight,
 	Plus,
@@ -53,6 +54,11 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
 	type DomainWithRedirects,
 	Step,
@@ -403,6 +409,34 @@ export function DomainForm({
 																			disabled={isFormDisabled}
 																		/>
 																		<InputGroupAddon align="inline-end">
+																			<form.Subscribe
+																				selector={(state) =>
+																					state.values.redirects?.[index]
+																						?.enabled
+																				}
+																			>
+																				{(enabled) =>
+																					!enabled && (
+																						<Tooltip>
+																							<TooltipTrigger asChild>
+																								<InputGroupButton
+																									variant="ghost"
+																									size="icon-xs"
+																									aria-label="Redirect disabled"
+																								>
+																									<BanIcon className="text-yellow-600 dark:text-yellow-500" />
+																								</InputGroupButton>
+																							</TooltipTrigger>
+																							<TooltipContent>
+																								<p>
+																									This redirect is disabled
+																									(enable in settings)
+																								</p>
+																							</TooltipContent>
+																						</Tooltip>
+																					)
+																				}
+																			</form.Subscribe>
 																			{field.state.value.length > 1 && (
 																				<InputGroupButton
 																					type="button"
