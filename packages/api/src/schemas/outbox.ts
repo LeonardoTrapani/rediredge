@@ -4,7 +4,7 @@ import { z } from "zod";
 export const redirectPayloadBaseSchema = z.object({
 	id: z.uuid(),
 	apex: z.string().min(1),
-	subdomain: z.string(),
+	subdomain: z.string().min(1),
 	destinationUrl: z.url(),
 	code: z.enum(redirectCode.enumValues),
 	preservePath: z.boolean(),
@@ -20,7 +20,7 @@ export const redirectUpdatedPayloadSchema = redirectPayloadBaseSchema;
 export const redirectDeletedPayloadSchema = z.object({
 	id: z.uuid(),
 	apex: z.string().min(1),
-	subdomain: z.string(),
+	subdomain: z.string().min(1),
 });
 
 export const outboxEventSchema = z.discriminatedUnion("topic", [

@@ -1,9 +1,13 @@
 import { sleep } from "workflow";
 import { redis } from "@/lib/redis";
+import { processOutboxBatch } from "./process-outbox";
 
 const LOCK_KEY = "worker:sync:lock";
 const STOP_KEY = "worker:sync:stop";
 const LOCK_TTL_SECONDS = 90;
+const INITIAL_BACKOFF_MS = 1_000;
+const INCREASE_MULTIPLIER = 1.8;
+const MAX_BACKOFF_MS = 60_000;
 
 function withJitter(ms: number) {
 	const jitter = Math.floor(ms * 0.2 * Math.random()); // ±20%
@@ -46,12 +50,8 @@ async function checkStopFlag(stopKey: string) {
 type TickResult = { processed: number };
 async function outboxTick(): Promise<TickResult> {
 	"use step";
-	console.log("---------------- PROCESSING HERE ----------------");
-	// TODO: implement:
-	// 1) SELECT … FOR UPDATE SKIP LOCKED
-	// 2) upsert to Redis read-model (idempotent by version)
-	// 3) mark events processed
-	return { processed: 0 };
+	const result = await processOutboxBatch();
+	return { processed: result.processed };
 }
 
 export async function syncOutboxWorkflow() {
@@ -60,8 +60,7 @@ export async function syncOutboxWorkflow() {
 	const { acquired, token } = await acquireLock(LOCK_KEY, LOCK_TTL_SECONDS);
 	if (!acquired) return; // another run owns the singleton
 
-	let backoffMs = 500;
-	const backoffMaxMs = 30_000;
+	let backoffMs = INITIAL_BACKOFF_MS;
 
 	try {
 		while (true) {
@@ -75,12 +74,15 @@ export async function syncOutboxWorkflow() {
 
 			backoffMs =
 				processed > 0
-					? 500
-					: Math.min(backoffMaxMs, Math.floor(backoffMs * 1.8));
+					? INITIAL_BACKOFF_MS
+					: Math.min(
+							MAX_BACKOFF_MS,
+							Math.floor(backoffMs * INCREASE_MULTIPLIER),
+						);
 
 			// Apply jitter (±20%) and sleep -> workflows are smoothed out
 			const jittered = withJitter(backoffMs);
-			await sleep(`${Math.ceil(jittered / 1000)}s`);
+			await sleep(`${Math.ceil(jittered)}ms`);
 		}
 	} finally {
 		await releaseLock(LOCK_KEY, token);

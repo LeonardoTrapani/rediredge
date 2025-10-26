@@ -23,7 +23,6 @@ export const redirectCode = pgEnum("redirect_code", [
 
 export const outboxStatus = pgEnum("outbox_status", [
 	"pending",
-	"processing",
 	"done",
 	"failed",
 ]);
