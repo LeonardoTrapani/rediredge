@@ -3,7 +3,6 @@ import { db, eq } from "@rediredge/db";
 import { domain, redirect } from "@rediredge/db/schema/domains";
 import { headers } from "next/headers";
 import { redirect as nextRedirect } from "next/navigation";
-import { authClient } from "@/lib/auth-client";
 
 export default async function DashboardPage() {
 	const session = await auth.api.getSession({ headers: await headers() });
@@ -17,10 +16,6 @@ export default async function DashboardPage() {
 
 	if (!domains.length || !domains.find((d) => d.redirect?.id))
 		return nextRedirect("/p/new");
-
-	const { data: _customerState } = await authClient.customer.state({
-		fetchOptions: { headers: await headers() },
-	});
 
 	return <div>{JSON.stringify(domains)}</div>;
 }

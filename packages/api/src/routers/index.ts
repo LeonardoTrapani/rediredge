@@ -32,19 +32,7 @@ export const appRouter = router({
 				userId: ctx.session.user.id,
 			});
 
-			await db.insert(redirect).values(
-				input.redirects.map((r) => ({
-					id: crypto.randomUUID(),
-					domainId,
-					subdomain: r.subdomain,
-					destinationUrl: r.destinationUrl,
-					code: r.code,
-					preservePath: r.preservePath,
-					preserveQuery: r.preserveQuery,
-				})),
-			);
-
-			return { domainId };
+			return { domainId, apex: input.domain };
 		}),
 	getDomainWithRedirects: protectedProcedure
 		.input(getDomainSchema)
