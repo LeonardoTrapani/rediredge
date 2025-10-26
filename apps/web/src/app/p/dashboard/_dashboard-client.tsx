@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
 	AlertTriangleIcon,
 	ArrowRightIcon,
@@ -13,6 +13,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -39,6 +40,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { authClient } from "@/lib/auth-client";
 import { trpc } from "@/utils/trpc";
 
 type DomainData = {
@@ -59,26 +61,46 @@ export default function DashboardClient({
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 	const [domainToDelete, setDomainToDelete] = useState<string | null>(null);
 
+	const { data: customerState } = useQuery({
+		queryKey: ["customerState"],
+		queryFn: async () => {
+			const { data } = await authClient.customer.state();
+			return data;
+		},
+	});
+
 	const deleteMutation = useMutation({
 		...trpc.domain.delete.mutationOptions(),
 		onSuccess: () => {
+			toast.success("Domain deleted successfully");
 			setDeleteDialogOpen(false);
 			setDomainToDelete(null);
 			router.refresh();
+		},
+		onError: (error) => {
+			toast.error(`Failed to delete domain: ${error.message}`);
 		},
 	});
 
 	const enableAllMutation = useMutation({
 		...trpc.domain.enableAllRedirects.mutationOptions(),
 		onSuccess: () => {
+			toast.success("All redirects enabled successfully");
 			router.refresh();
+		},
+		onError: (error) => {
+			toast.error(`Failed to enable redirects: ${error.message}`);
 		},
 	});
 
 	const disableAllMutation = useMutation({
 		...trpc.domain.disableAllRedirects.mutationOptions(),
 		onSuccess: () => {
+			toast.success("All redirects disabled successfully");
 			router.refresh();
+		},
+		onError: (error) => {
+			toast.error(`Failed to disable redirects: ${error.message}`);
 		},
 	});
 
@@ -93,20 +115,34 @@ export default function DashboardClient({
 		}
 	};
 
+	const hasActiveSubscription =
+		customerState?.activeSubscriptions &&
+		customerState.activeSubscriptions.length > 0;
+
 	return (
 		<>
 			<div className="container mx-auto max-w-3xl px-4 py-8">
-				<div className="mb-8 flex items-center justify-between">
+				<div className="mb-8 flex items-center justify-between gap-2">
 					<div>
-						<h1 className="font-bold text-3xl">Your Domains</h1>
+						<h1 className="font-bold text-xl md:text-3xl">Your Domains</h1>
 						<p className="mt-1 text-muted-foreground">
 							Manage your domains and redirects
 						</p>
 					</div>
-					<Link href="/p/new" className={buttonVariants()}>
-						<PlusIcon />
-						Add Domain
-					</Link>
+					<div className="flex flex-col items-stretch justify-end gap-2 md:flex-row md:items-center">
+						{!hasActiveSubscription && customerState && (
+							<Button
+								variant="outline"
+								onClick={async () => await authClient.checkout({ slug: "pro" })}
+							>
+								Setup Payments
+							</Button>
+						)}
+						<Link href="/p/new" className={buttonVariants()}>
+							<PlusIcon />
+							Add Domain
+						</Link>
+					</div>
 				</div>
 
 				<div className="grid gap-6 md:grid-cols-2">

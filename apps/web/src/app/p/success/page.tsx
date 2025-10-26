@@ -12,6 +12,7 @@ export default function SuccessPage() {
 			sessionStorage.removeItem("redirectAfterCheckout");
 			router.replace(redirectPath as never);
 		}
+		router.replace("/p/dashboard");
 	}, [router]);
 
 	return (

@@ -1,6 +1,7 @@
 "use client";
 import Image from "next/image";
 import Link from "next/link";
+import { authClient } from "@/lib/auth-client";
 import { ModeToggle } from "../mode-toggle";
 import UserMenu from "../user-menu";
 import { buttonVariants } from "./button";
@@ -14,13 +15,14 @@ import {
 
 export default function Navbar() {
 	const links = [] as const;
+	const { data: session } = authClient.useSession();
 
 	return (
 		<div>
 			<div className="flex flex-row items-center justify-between px-2 py-1">
 				<div className="flex items-center gap-2">
 					<Link
-						href="/p/dashboard"
+						href={session?.user.id ? "/p/dashboard" : "/"}
 						className={buttonVariants({
 							variant: "ghost",
 							className: "!gap-1 font-semibold",

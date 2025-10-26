@@ -33,7 +33,7 @@ export default function UserMenu() {
 
 	if (!session) {
 		return (
-			<Button variant="outline" asChild>
+			<Button variant="outline">
 				<Link href="/login">Sign In</Link>
 			</Button>
 		);

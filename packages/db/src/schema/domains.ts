@@ -28,7 +28,7 @@ export const domain = pgTable(
 	{
 		id: text("id").primaryKey(),
 		// apex only, lowercase + punycode at write time
-		apex: text("apex").notNull().unique(), // e.g. "example.com"
+		apex: text("apex").notNull(), // e.g. "example.com"
 		verifiedAt: timestamp("verified_at", { withTimezone: true }),
 		verified: boolean("verified").notNull().default(false),
 

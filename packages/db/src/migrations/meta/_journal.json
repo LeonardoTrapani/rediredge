@@ -15,6 +15,13 @@
 			"when": 1761499010149,
 			"tag": "0001_solid_infant_terrible",
 			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "7",
+			"when": 1761508243627,
+			"tag": "0002_icy_omega_sentinel",
+			"breakpoints": true
 		}
 	]
 }

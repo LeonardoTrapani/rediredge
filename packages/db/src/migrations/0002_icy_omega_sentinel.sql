@@ -1,0 +1,1 @@
+ALTER TABLE "domain" DROP CONSTRAINT "domain_apex_unique";
