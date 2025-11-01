@@ -9,7 +9,8 @@
 ## Highlights
 
 * **Instant redirects, zero cold starts.** A tiny Go redirector returns 30x in a single lookup.
-* **Automatic HTTPS (proxy‑managed).** A front proxy handles TLS and ACME (on‑demand issuance and DNS‑01 wildcards).
+* **Built‑in TLS, no proxy needed.** Go redirector handles HTTPS directly via autocert—faster, simpler, one binary.
+* **Automatic HTTPS built‑in.** ACME HTTP‑01 with zero config, on‑demand cert issuance.
 * **Easy to self‑host.** One‑command **Docker Compose** templates; multiple templates will be available.
 * **Hosted or self‑hosted.** Use our **hosted, horizontally‑scaled** service (no setup), or run it yourself for free.
 * **Simple & powerful.** Clean Next.js dashboard & API, 307/308 method‑preserving redirects, path/query controls.
@@ -19,11 +20,10 @@
 
 ## What is Rediredge?
 
-Rediredge pairs a **Go data plane** with a **Next.js control plane**. The control plane manages users, domains, and redirect rules; the data plane serves production traffic with a front proxy for TLS and a tiny Go service that issues instant 30x responses based on a redis database (for extremely fast lookups).
+Rediredge pairs a **Go data plane** with a **Next.js control plane**. The control plane manages users, domains, and redirect rules; the data plane serves production traffic with a single Go service that handles TLS and issues instant 30x responses based on a redis database (for extremely fast lookups).
 
 * **Data plane (edge):**
-  * **Front proxy (default: Caddy)** — terminates TLS, obtains & renews certificates (ACME), and forwards HTTP to the app.
-  * **Go redirector** — reads a compact lookup model from Redis and returns the redirect immediately.
+  * **Go redirector** — handles TLS via autocert (ACME HTTP‑01), reads a compact lookup model from Redis, and returns the redirect immediately.
 * **Control plane (dashboard & API):**
   * **Next.js** app for auth, domains, and redirects; persists canonical configuration and publishes a read‑optimized view for the edge.
 
@@ -55,15 +55,13 @@ flowchart LR
 
   %% Data plane
   subgraph DP[Data plane]
-    PXY[Proxy<br>TLS and ACME]
-    EDGE[Go redirector<br>HTTP only]
-    PXY -->|HTTP| EDGE
+    EDGE[Go redirector<br>HTTPS + TLS via autocert]
     EDGE -->|HGET| R
     R -->|response| EDGE
     EDGE -->|LPUSH logs| R
   end
 
-  C[Client] -->|HTTPS| PXY
+  C[Client] -->|HTTPS| EDGE
   EDGE -->|30x| C
   UI -->|billing| POLAR[(Polar billing)]
   AW -->|billing| POLAR
@@ -73,14 +71,14 @@ flowchart LR
 
 * The dashboard/API is **never on the hot path** for visitor traffic.
 * Canonical config lives in Postgres; the edge reads a compact **Redis** view.
-* TLS is managed by the **front proxy**; the Go redirector is **HTTP‑only** and stateless.
+* TLS is handled directly by the **Go redirector** via autocert (ACME HTTP‑01); the redirector is stateless.
 * Redirect analytics are logged asynchronously to Redis; a worker processes them in batches to update the database and Polar billing.
 * Syncing via the Sync Worker ensures data consistency from Postgres to Redis for configurations.
 
 **Deployment flexibility**
 
 * **Control plane** (Next.js, Postgres, Sync Worker): hosted by us or fully self‑hosted.
-* **Data plane** (Proxy, Go redirector, Redis): hosted by us (paid) or self‑hosted (free/cheaper).
+* **Data plane** (Go redirector, Redis): hosted by us (paid) or self‑hosted (free/cheaper).
 * Self‑hosters run the data plane locally while connecting to our hosted control plane for management.
 
 ---
@@ -100,9 +98,8 @@ Self‑host the **data plane** (redirector) while we manage the **control plane*
 ```
 Your Server (self-hosted):
 ┌──────────────────────────────────┐
-│  Caddy :80/443 (exposed)         │
-│    ↓                             │
-│  Go Redirector :18549 (internal) │
+│  Go Redirector :80/443 (exposed) │
+│  - Handles TLS via autocert      │
 │    ↓                             │
 │  Redis :6379 (exposed + AUTH)    │
 └────────────────┬─────────────────┘
@@ -120,8 +117,7 @@ Your Server (self-hosted):
 
 **What you get**
 
-* **Caddy** — Automatic HTTPS via ACME, terminates TLS, exposes 80/443.
-* **Go redirector** — Stateless HTTP service, reads from Redis.
+* **Go redirector** — Handles HTTPS via autocert (ACME HTTP‑01), stateless service, exposes 80/443.
 * **Redis** — Stores redirect map, exposed with AUTH for our sync worker.
 
 **Setup**
@@ -137,7 +133,7 @@ Our sync worker connects to your Redis (multi-tenant) and keeps it updated with 
 
 **Horizontal Scaling (optional)**
 
-Run multiple instances of Caddy and Go redirector; place them behind your load balancer. Redis can be scaled with replicas or clustering.
+Run multiple instances of the Go redirector; place them behind your load balancer. Redis can be scaled with replicas or clustering.
 
 ## How syncing works (Postgres → Redis)
 
@@ -200,18 +196,17 @@ sequenceDiagram
 ## Scaling & availability
 
 * **Horizontally scalable by design.**
-  * Scale the **proxy tier**: add more instances; they terminate TLS.
   * Scale the **Go tier**: add more redirectors; they are stateless and read from Redis.
 
 * **Multi‑region (optional):**
-  * Deploy proxy + Go in multiple regions; put a DNS policy (e.g., latency‑based) in front.
+  * Deploy Go redirectors in multiple regions; put a DNS policy (e.g., latency‑based) in front.
   * No anycast required for v1; the system still works great from a single region.
 
 ---
 
 ## Tech & development
 
-* **Edge:** Front proxy (TLS + ACME + forwarding), Go redirector, Redis read model.
+* **Edge:** Go redirector (TLS + ACME via autocert), Redis read model.
 * **Control:** **Next.js** dashboard, auth, domains & redirects; Postgres (canonical), sync worker → Redis (read), analytics worker → Redis (logs).
 * **Monorepo:** Turborepo; Bun scripts for dev/build/lint.
 
@@ -246,12 +241,12 @@ bun run db:migrate
 
 ## Roadmap
 
-* **0.1 (hosted preview):** core redirector, dashboard (Next.js), TXT domain verification, usage metering → Polar billing**.
+* **0.1 (hosted preview):** core redirector with built‑in TLS, dashboard (Next.js), TXT domain verification, usage metering → Polar billing**.
 * **0.1.5**: redirect verification
-* **0.2**: self‑host Docker Compose template (proxy‑in‑front)
+* **0.2**: self‑host Docker Compose template
 * **0.3**: easy horizontal scaling
 * **0.4**: metrics dashboard, analytics
-* **0.5** additional self‑host templates (Traefik single‑node; Kubernetes with cert‑manager), rebuild job, usage analytics pipeline, basic metrics export.
+* **0.5** additional self‑host templates (Kubernetes), rebuild job, usage analytics pipeline, basic metrics export.
 * **1.0:** full docs, stable product.
 
 > Roadmap is indicative; items may shuffle as we gather feedback.
