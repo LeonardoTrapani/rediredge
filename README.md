@@ -77,6 +77,12 @@ flowchart LR
 * Redirect analytics are logged asynchronously to Redis; a worker processes them in batches to update the database and Polar billing.
 * Syncing via the Sync Worker ensures data consistency from Postgres to Redis for configurations.
 
+**Deployment flexibility**
+
+* **Control plane** (Next.js, Postgres, Sync Worker): hosted by us or fully self‑hosted.
+* **Data plane** (Proxy, Go redirector, Redis): hosted by us (paid) or self‑hosted (free/cheaper).
+* Self‑hosters run the data plane locally while connecting to our hosted control plane for management.
+
 ---
 
 ## Deploying Rediredge
@@ -87,29 +93,51 @@ Use our **hosted, horizontally‑scaled** service. We operate a proxy tier that 
 
 ### 2) Self‑host (Docker Compose)
 
-Self‑hosting is **one command**. We'll ship **multiple templates**; the default template uses a front proxy in front of the Go app.
+Self‑host the **data plane** (redirector) while we manage the **control plane** (dashboard, database, sync). One‑command setup with Docker Compose.
 
-**Template A — Proxy‑in‑front (default)**
+**Architecture**
 
-* **What it does**
+```
+Your Server (self-hosted):
+┌──────────────────────────────────┐
+│  Caddy :80/443 (exposed)         │
+│    ↓                             │
+│  Go Redirector :18549 (internal) │
+│    ↓                             │
+│  Redis :6379 (exposed + AUTH)    │
+└────────────────┬─────────────────┘
+                 │
+            Syncs from...
+                 │
+┌────────────────┴─────────────────┐
+│  Our Hosted Control Plane        │
+│                                  │
+│  • Next.js Dashboard             │
+│  • Postgres (canonical storage)  │
+│  • Sync Worker → your Redis      │
+└──────────────────────────────────┘
+```
 
-  * Front proxy terminates TLS and obtains/renews certificates automatically.
-  * Go redirector runs HTTP‑only and is fully stateless.
-  * Redis stores the read‑optimized redirect map.
+**What you get**
 
-* **What you (the operator) add to DNS**
+* **Caddy** — Automatic HTTPS via ACME, terminates TLS, exposes 80/443.
+* **Go redirector** — Stateless HTTP service, reads from Redis.
+* **Redis** — Stores redirect map, exposed with AUTH for our sync worker.
 
-  * **Verification:** Add a **TXT** record at `_rediredge.example.com` with the verification token we provide (proves domain ownership).
-  * **Routing:** Add a wildcard **CNAME** record `*.example.com` pointing to the redirector endpoint we provide (routes all subdomain traffic).
-  * We'll provide provider‑specific copy‑paste instructions in the product UI.
-  
-  > **Note:** Currently supports subdomain redirects only (e.g., `cal.example.com`). Apex/root domain support (e.g., `example.com`) coming in a future release.
+**Setup**
 
-* **Horizontal Scaling (optional)**
+1. Create account on our hosted dashboard.
+2. Configure domains & redirects in the dashboard.
+3. Add your Redis connection details in dashboard settings (host, port, AUTH password).
+4. Copy our `docker-compose.yml` template.
+5. Run `docker-compose up -d`.
+6. Point your domain DNS to your server.
 
-  * Run multiple proxy instances and multiple Go instances; put them behind your load balancer. The proxy layer manages TLS; the Go layer scales horizontally.
+Our sync worker connects to your Redis (multi-tenant) and keeps it updated with your redirect configuration.
 
-> Additional templates (Traefik single‑node, Kubernetes with cert‑manager, etc.) will be published as we approach 1.0.
+**Horizontal Scaling (optional)**
+
+Run multiple instances of Caddy and Go redirector; place them behind your load balancer. Redis can be scaled with replicas or clustering.
 
 ## How syncing works (Postgres → Redis)
 
@@ -227,22 +255,6 @@ bun run db:migrate
 * **1.0:** full docs, stable product.
 
 > Roadmap is indicative; items may shuffle as we gather feedback.
-
----
-
-## Coming before 1.0 — other proxy options
-
-We default to a proxy‑in‑front pattern and will ship **multiple templates**:
-
-* **Traefik (single‑node):** easiest for small self‑hosts; ACME/renewal into a local `acme.json`. Not HA by itself.
-* **Kubernetes (Traefik or NGINX) + cert‑manager:** cert‑manager handles ACME (incl. DNS‑01); certs live in **Secrets**; scale proxies/redirectors freely.
-* **Nginx / HAProxy family:** classic stacks using Certbot or acme.sh. Great single‑node story; for HA, share cert storage or use K8s + cert‑manager.
-
-Each template will include:
-
-* DNS instructions (routing + verification),
-* health checks and basic observability,
-* zero‑downtime rollout guidance.
 
 ---
 
