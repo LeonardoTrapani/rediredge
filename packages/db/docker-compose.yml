@@ -19,20 +19,5 @@ services:
       retries: 5
     restart: unless-stopped
 
-  redis:
-    image: redis:latest
-    container_name: rediredge-redis
-    ports:
-      - "5498:6379"
-    volumes:
-      - rediredge_redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
 volumes:
   rediredge_postgres_data:
-  rediredge_redis_data:

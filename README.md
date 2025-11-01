@@ -122,12 +122,37 @@ Your Server (self-hosted):
 
 **Setup**
 
-1. Create account on our hosted dashboard.
-2. Configure domains & redirects in the dashboard.
-3. Add your Redis connection details in dashboard settings (host, port, AUTH password).
-4. Copy our `docker-compose.yml` template.
-5. Run `docker-compose up -d`.
-6. Point your domain DNS to your server.
+1. Clone the repository and navigate to the redirector directory:
+   ```bash
+   git clone https://github.com/yourusername/rediredge.git
+   cd rediredge/redirector
+   ```
+
+2. Create a `.env` file with a secure Redis password:
+   ```bash
+   echo "REDIS_PASSWORD=your-secure-password" > .env
+   ```
+
+3. Start the services:
+   ```bash
+   docker-compose up -d
+   ```
+
+4. Verify services are running:
+   ```bash
+   docker-compose logs -f
+   ```
+
+5. Create account on our hosted dashboard.
+
+6. Configure domains & redirects in the dashboard.
+
+7. Add your Redis connection details in dashboard settings:
+   - **Host:** your-server-ip
+   - **Port:** 6379
+   - **Password:** (from your `.env` file)
+
+8. Point your domain DNS A records to your server IP.
 
 Our sync worker connects to your Redis (multi-tenant) and keeps it updated with your redirect configuration.
 
@@ -225,10 +250,17 @@ bun run build
 # types across workspace
 bun run check-types
 
-# Go Redirector (from redirector/ workspace)
-bun run --filter=@rediredge/redirector dev
-bun run --filter=@rediredge/redirector test
-bun run --filter=@rediredge/redirector lint
+# Go Redirector (standalone development)
+cd redirector
+go build -o bin/redirector .
+go test ./...
+
+# Go Redirector (Docker Compose - self-hosting)
+cd redirector
+docker-compose up -d           # Start services
+docker-compose logs -f         # View logs
+docker-compose down            # Stop services
+docker-compose build           # Rebuild after code changes
 
 # database (Drizzle)
 bun run db:push

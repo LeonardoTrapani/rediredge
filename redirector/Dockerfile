@@ -37,6 +37,7 @@ USER redirector
 
 # Set default environment variables
 ENV REDIS_ADDR=localhost:5498 \
+    REDIS_PASSWORD="" \
     CERT_CACHE_DIR=/certs \
     HTTP_ADDR=:80 \
     HTTPS_ADDR=:443
