@@ -3,16 +3,44 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"golang.org/x/crypto/acme/autocert"
 )
 
-func getDomainAndSubdomain(req *http.Request) (string, string) {
-	host := req.Host
+type Config struct {
+	RedisAddr    string
+	CertCacheDir string
+	HTTPAddr     string
+	HTTPSAddr    string
+}
+
+func loadConfig() Config {
+	getEnv := func(key, defaultVal string) string {
+		if val := os.Getenv(key); val != "" {
+			return val
+		}
+		return defaultVal
+	}
+
+	return Config{
+		RedisAddr:    getEnv("REDIS_ADDR", "localhost:5498"),
+		CertCacheDir: getEnv("CERT_CACHE_DIR", "./certs"),
+		HTTPAddr:     getEnv("HTTP_ADDR", ":80"),
+		HTTPSAddr:    getEnv("HTTPS_ADDR", ":443"),
+	}
+}
+
+func getDomainAndSubdomain(host string) (string, string) {
 	parts := strings.Split(host, ".")
 	domain := ""
 	subdomain := ""
@@ -58,7 +86,7 @@ func loggingMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		start := time.Now()
 		rw := &responseWriter{
 			ResponseWriter: w,
-			status:         200, // default status
+			status:         200,
 			location:       "",
 		}
 		log.Printf("Request: %s %s", r.Method, r.Host+r.URL.String())
@@ -75,7 +103,7 @@ func (h *RedirectHandler) redirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	domain, subdomain := getDomainAndSubdomain(r)
+	domain, subdomain := getDomainAndSubdomain(r.Host)
 	search := r.URL.Path
 	query := r.URL.RawQuery
 
@@ -114,20 +142,117 @@ func (h *RedirectHandler) redirect(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, location, rule.Status)
 }
 
+func buildHostPolicy(rdb *redis.Client) func(ctx context.Context, host string) error {
+	return func(ctx context.Context, host string) error {
+		// Remove port if present
+		hostWithoutPort := strings.Split(host, ":")[0]
+		domain, subdomain := getDomainAndSubdomain(hostWithoutPort)
+
+		field := domain
+		if subdomain != "" {
+			field = domain + ":" + subdomain
+		}
+
+		exists, err := rdb.HExists(ctx, "redirects", field).Result()
+		if err != nil {
+			return fmt.Errorf("redis error checking domain %s: %w", host, err)
+		}
+		if !exists {
+			return fmt.Errorf("domain not configured: %s", host)
+		}
+		return nil
+	}
+}
+
 func main() {
+	config := loadConfig()
+
 	rdb := redis.NewClient(&redis.Options{
-		Addr: "localhost:5498",
+		Addr: config.RedisAddr,
 	})
 
 	ctx := context.Background()
 	if err := rdb.Ping(ctx).Err(); err != nil {
 		log.Fatal("Failed to connect to Redis:", err)
 	}
+	log.Printf("Connected to Redis at %s", config.RedisAddr)
+
+	if err := os.MkdirAll(config.CertCacheDir, 0700); err != nil {
+		log.Fatal("Failed to create cert cache dir:", err)
+	}
+	log.Printf("Using cert cache dir: %s", config.CertCacheDir)
+
+	certManager := &autocert.Manager{
+		Cache:      autocert.DirCache(config.CertCacheDir),
+		Prompt:     autocert.AcceptTOS,
+		HostPolicy: buildHostPolicy(rdb),
+	}
 
 	handler := &RedirectHandler{redis: rdb}
 
-	http.HandleFunc("/", loggingMiddleware(handler.redirect))
+	// HTTP server (port 80) - ACME challenges + HTTP→HTTPS redirect
+	httpMux := http.NewServeMux()
+	httpMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// Handle ACME challenges
+		if strings.HasPrefix(r.URL.Path, "/.well-known/acme-challenge/") {
+			certManager.HTTPHandler(nil).ServeHTTP(w, r)
+			return
+		}
 
-	log.Println("Starting server on :18549")
-	http.ListenAndServe(":18549", nil)
+		// Redirect HTTP to HTTPS
+		target := "https://" + r.Host + r.URL.RequestURI()
+		http.Redirect(w, r, target, http.StatusPermanentRedirect)
+	})
+
+	httpServer := &http.Server{
+		Addr:    config.HTTPAddr,
+		Handler: httpMux,
+	}
+
+	// HTTPS server (port 443) - TLS + redirects
+	httpsMux := http.NewServeMux()
+	httpsMux.HandleFunc("/", loggingMiddleware(handler.redirect))
+
+	httpsServer := &http.Server{
+		Addr:      config.HTTPSAddr,
+		Handler:   httpsMux,
+		TLSConfig: certManager.TLSConfig(),
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		log.Printf("Starting HTTP server on %s", config.HTTPAddr)
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Printf("HTTP server error: %v", err)
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		log.Printf("Starting HTTPS server on %s", config.HTTPSAddr)
+		if err := httpsServer.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+			log.Printf("HTTPS server error: %v", err)
+		}
+	}()
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	<-sigChan
+
+	log.Println("Shutting down servers...")
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		log.Printf("HTTP server shutdown error: %v", err)
+	}
+	if err := httpsServer.Shutdown(shutdownCtx); err != nil {
+		log.Printf("HTTPS server shutdown error: %v", err)
+	}
+
+	wg.Wait()
+	log.Println("Servers stopped")
 }
