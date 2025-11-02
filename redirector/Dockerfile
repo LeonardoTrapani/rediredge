@@ -35,11 +35,4 @@ RUN addgroup -S redirector && adduser -S redirector -G redirector
 RUN chown -R redirector:redirector /root /certs
 USER redirector
 
-# Set default environment variables
-ENV REDIS_ADDR=localhost:5498 \
-    REDIS_PASSWORD="" \
-    CERT_CACHE_DIR=/certs \
-    HTTP_ADDR=:80 \
-    HTTPS_ADDR=:443
-
 CMD ["./redirector"]

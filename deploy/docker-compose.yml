@@ -1,6 +1,6 @@
 services:
   redirector:
-    build: .
+    build: ../redirector
     ports:
       - "80:80"
       - "443:443"

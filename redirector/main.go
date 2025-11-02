@@ -34,11 +34,11 @@ func loadConfig() Config {
 	}
 
 	return Config{
-		RedisAddr:     getEnv("REDIS_ADDR", "localhost:5498"),
+		RedisAddr:     getEnv("REDIS_ADDR", "localhost:5497"),
 		RedisPassword: getEnv("REDIS_PASSWORD", ""),
 		CertCacheDir:  getEnv("CERT_CACHE_DIR", "./certs"),
-		HTTPAddr:      getEnv("HTTP_ADDR", ":80"),
-		HTTPSAddr:     getEnv("HTTPS_ADDR", ":443"),
+		HTTPAddr:      getEnv("HTTP_ADDR", ":5499"),
+		HTTPSAddr:     getEnv("HTTPS_ADDR", ":5498"),
 	}
 }
 
@@ -193,7 +193,7 @@ func main() {
 
 	handler := &RedirectHandler{redis: rdb}
 
-	// HTTP server (port 80) - ACME challenges + HTTP→HTTPS redirect
+	// HTTP server (port 5499) - ACME challenges + HTTP→HTTPS redirect
 	httpMux := http.NewServeMux()
 	httpMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		// Handle ACME challenges
@@ -212,7 +212,7 @@ func main() {
 		Handler: httpMux,
 	}
 
-	// HTTPS server (port 443) - TLS + redirects
+	// HTTPS server (port 5498) - TLS + redirects
 	httpsMux := http.NewServeMux()
 	httpsMux.HandleFunc("/", loggingMiddleware(handler.redirect))
 

@@ -1,0 +1,81 @@
+---
+title: Self-Hosting
+description: Deploy Rediredge data plane on your infrastructure
+---
+
+# Self-Hosting
+
+Deploy the Rediredge data plane (Go redirector + Redis) on your own infrastructure.
+
+## Architecture
+
+The data plane consists of:
+
+- **Go redirector** - Handles HTTP/HTTPS traffic, TLS via autocert, serves 307/308 redirects
+- **Redis** - Read model for fast redirect lookups
+
+The control plane (Next.js dashboard) runs separately and syncs data to your Redis instance.
+
+## Requirements
+
+- **Ports:** 80 (HTTP/ACME), 443 (HTTPS), 6379 (Redis)
+- **Storage:** Persistent volumes for TLS certificates and Redis data
+- **DNS:** A records pointing to your server for each domain
+- **Redis:** Password authentication enabled
+
+## Certificate Management
+
+TLS certificates are automatically issued via Let's Encrypt (ACME HTTP-01):
+
+- Certificates stored in `/certs` volume (persistent)
+- Auto-renewal before expiration
+- Domain validated against Redis before issuance
+- Rate limits: 50 certs/domain/week (shared)
+
+**IMPORTANT:** Don't lose the `/certs` volume or you'll hit rate limits.
+
+## Deployment Options
+
+<Cards>
+  <Card title="VPS (Docker)" href="/docs/self-hosting/vps">
+    Quick start with Docker Compose on any VPS
+  </Card>
+  <Card title="Railway" href="/docs/self-hosting/railway">
+    One-click template (coming soon)
+  </Card>
+  <Card title="Fly.io" href="/docs/self-hosting/fly">
+    Global edge deployment (coming soon)
+  </Card>
+  <Card title="Render" href="/docs/self-hosting/render">
+    Managed platform (coming soon)
+  </Card>
+  <Card title="DigitalOcean" href="/docs/self-hosting/digitalocean">
+    Droplets guide (coming soon)
+  </Card>
+  <Card title="Hetzner" href="/docs/self-hosting/hetzner">
+    EU-focused VPS (coming soon)
+  </Card>
+  <Card title="Vultr" href="/docs/self-hosting/vultr">
+    32 global locations (coming soon)
+  </Card>
+  <Card title="AWS" href="/docs/self-hosting/aws">
+    EC2, ECS, Lightsail (coming soon)
+  </Card>
+  <Card title="Kubernetes" href="/docs/self-hosting/kubernetes">
+    K8s manifests (coming soon)
+  </Card>
+</Cards>
+
+## Next Steps
+
+1. Choose a deployment platform
+2. Follow the platform-specific guide
+3. Configure control plane to sync to your Redis
+4. Point DNS records to your server
+5. Test with a redirect
+
+## Need Help?
+
+- [Troubleshooting](/docs/self-hosting/troubleshooting)
+- [GitHub Issues](https://github.com/leonardotrapani/rediredge/issues)
+- [Contribute a guide](https://github.com/leonardotrapani/rediredge/blob/main/apps/fumadocs/content/docs/self-hosting/README.md)

@@ -1,0 +1,44 @@
+---
+title: Troubleshooting
+description: Common issues and solutions
+---
+
+# Troubleshooting
+
+## Coming Soon
+
+This guide is under development. Common issues and solutions for self-hosted deployments.
+
+## Topics to Cover
+
+- Certificate renewal issues
+- Redis connection problems
+- DNS configuration errors
+- Port conflicts
+- Storage/volume issues
+- Performance tuning
+- Monitoring and logging
+
+## Want to Help?
+
+Contribute this guide on [GitHub](https://github.com/leonardotrapani/rediredge/blob/main/apps/fumadocs/content/docs/self-hosting/troubleshooting.mdx)!
+
+## Quick Tips
+
+**Port conflicts:**
+```bash
+sudo lsof -i :5499
+sudo lsof -i :5498
+```
+
+**Check Redis:**
+```bash
+docker compose exec redis redis-cli -a $REDIS_PASSWORD ping
+```
+
+**View logs:**
+```bash
+docker compose logs -f
+```
+
+For detailed troubleshooting, see the [VPS guide](/docs/self-hosting/vps#troubleshooting).
