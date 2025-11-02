@@ -123,7 +123,7 @@ Your Server (self-hosted):
 
 **Setup**
 
-> **📚 Full deployment guides available:** [VPS](apps/fumadocs/content/docs/self-hosting/vps.mdx), [Railway](apps/fumadocs/content/docs/self-hosting/railway.mdx), [Fly.io](apps/fumadocs/content/docs/self-hosting/fly.mdx), and [more](apps/fumadocs/content/docs/self-hosting/index.mdx).
+> **📚 Full deployment guides available [here](/deploy/README.md)
 
 Run multiple instances of the Go redirector; place them behind your load balancer. Redis can be scaled with replicas or clustering.
 
