@@ -1,38 +1,30 @@
-# Build stage
-FROM golang:1.24-alpine AS builder
-
+# ---------- Build stage ----------
+FROM golang:1.25-alpine AS builder
 WORKDIR /app
 
-# Copy go mod files
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy source
 COPY . .
 
-# Build binary
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o redirector .
+# Static-ish binary (no cgo), smaller
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o redirector .
 
-# Runtime stage
+# ---------- Runtime stage ----------
 FROM alpine:latest
 
-# Install ca-certificates for HTTPS
+# TLS roots for outbound HTTPS (e.g., ACME)
 RUN apk --no-cache add ca-certificates
 
-WORKDIR /root/
-
-# Copy binary from builder
-COPY --from=builder /app/redirector .
-
-# Create cert cache directory
-RUN mkdir -p /certs && chmod 700 /certs
-
-# Expose HTTP and HTTPS ports
-EXPOSE 80 443
-
-# Run as non-root user
+# Non-root app user
 RUN addgroup -S redirector && adduser -S redirector -G redirector
-RUN chown -R redirector:redirector /root /certs
+
+WORKDIR /app
+COPY --from=builder /app/redirector /app/redirector
+RUN mkdir -p /certs && chown -R redirector:redirector /app /certs
+
 USER redirector
 
-CMD ["./redirector"]
+EXPOSE 5499 5498
+
+CMD ["/app/redirector"]
