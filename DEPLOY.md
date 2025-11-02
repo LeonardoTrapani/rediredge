@@ -1,25 +1,36 @@
-## VPS Deployment
+# VPS Deployment (Debian)
 
-Deploy the **Rediredge data plane** (Go redirector) on any VPS using **Docker Compose**. Works on Ubuntu, Debian, Fedora, etc.
+Deploy the **Rediredge data plane** (Go redirector) on a Debian VPS using **Docker Compose**.
 
-### Prerequisites
+## Prerequisites
 
-* VPS with 1 GB+ RAM, 10 GB+ storage
-* Ubuntu 22.04+ (or equivalent)
-* Root/sudo access
-* Public IP address
-* Ports 80 and 443 available (for HTTP/HTTPS)
+* Debian 12 (Bookworm) or 11 (Bullseye)
+* 1 GB+ RAM, 10 GB+ storage
+* Root/sudo
+* Public IPv4
+* Ports **80** and **443** free
 
 ---
 
-### Step 1: Install Docker
+## Step 0: Base packages (Debian)
+
+```bash
+sudo apt update
+sudo apt install -y ca-certificates curl git ufw dnsutils lsof
+sudo install -m 0755 -d /etc/apt/keyrings
+```
+
+---
+
+## Step 1: Install Docker (Compose v2 included)
 
 ```bash
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
 
+# optional: run Docker as your user
 sudo usermod -aG docker $USER
-newgrp docker
+newgrp docker  # or log out/in
 
 docker --version
 docker compose version
@@ -27,7 +38,7 @@ docker compose version
 
 ---
 
-### Step 2: Clone Repository
+## Step 2: Clone repository
 
 ```bash
 cd ~
@@ -37,21 +48,22 @@ cd rediredge/redirector
 
 ---
 
-### Step 3: Configure Environment
+## Step 3: Configure environment
 
-Create a `.env` file with your **managed Redis URL** (TLS enabled, e.g. Upstash or Redis Cloud):
+Create `.env` **in `rediredge/deploy/`** with your managed Redis URL (TLS):
 
 ```bash
-cat > .env <<'EOF'
+mkdir -p deploy
+cat > deploy/.env <<'EOF'
 REDIS_URL=rediss://default:<YOUR_PASSWORD>@<YOUR_REDIS_HOST>:<YOUR_REDIS_PORT>/0
 EOF
 ```
 
 ---
 
-### Step 4: Docker Compose file
+## Step 4: Docker Compose file
 
-`deploy/docker-compose.yml`:
+Create `rediredge/deploy/docker-compose.yml`:
 
 ```yaml
 services:
@@ -74,85 +86,94 @@ volumes:
   certs:
 ```
 
+> Note: run all `docker compose` commands from `~/rediredge/deploy`.
+
 ---
 
-### Step 5: Start Service
+## Step 5: Build & start
 
 ```bash
-docker compose up -d
+cd ~/rediredge/deploy
+docker compose up -d --build
 ```
 
 Starts:
 
-* **redirector** on ports 80 (HTTP) and 443 (HTTPS)
+* **redirector** on **80/443**
 
 ---
 
-### Step 6: Verify Deployment
+## Step 6: Verify
 
 ```bash
 docker compose ps
 docker compose logs -f redirector
 ```
 
-If your app logs “**ACME obtained certificate**”, HTTPS is working.
+Look for: **“ACME obtained certificate”** → HTTPS OK.
 
 ---
 
-### Step 7: Firewall
+## Step 7: Firewall (Debian)
 
 ```bash
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
 sudo ufw enable
+sudo ufw status
 ```
 
 ---
 
-### Step 8: DNS Setup
+## Step 8: DNS
 
-Point your domain or subdomain (e.g. `redirector.rediredge.app`) to your VPS IP:
+Point your domain/subdomain to your VPS IP:
 
 ```
 redirector.rediredge.app.   IN  A   <YOUR_SERVER_IP>
 ```
 
-Wait for propagation (`dig redirector.rediredge.app`).
+Check:
+
+```bash
+dig +short redirector.rediredge.app
+```
 
 ---
 
-### Step 9: Connect Control Plane
+## Step 9: Connect Control Plane
 
-In the dashboard, follow the self-hosting instructions to connect your redis instance to our workers (enabling comunication between our control plane and your data plane).
+In the dashboard, follow the self-hosting steps and supply your Redis URL to link control plane ↔ data plane.
 
 ---
 
-### Step 10: Test Redirect
+## Step 10: Test redirect
 
-Create a redirect rule in the dashboard, then:
+Create a rule in the dashboard, then:
 
 ```bash
 curl -I http://example.com
-# Expect: 307/308 Location: https://target...
+# Expect: 307/308 with Location: https://target...
 ```
 
 ---
 
-## Maintenance
+# Maintenance
 
-### View Logs
+## Logs
 
 ```bash
+cd ~/rediredge/deploy
 docker compose logs -f
 ```
 
-### Restart
+## Restart
 
 ```bash
 docker compose restart
 ```
 
-### Update Rediredge
+## Update Rediredge
 
 ```bash
 cd ~/rediredge
@@ -163,20 +184,21 @@ docker compose build --no-cache
 docker compose up -d
 ```
 
-### Backup Certificates
+## Backup certificates (Compose project dir is “deploy” → volume name `deploy_certs`)
 
 ```bash
+# Backup
 docker run --rm -v deploy_certs:/certs \
-  -v $(pwd):/backup alpine \
-  tar czf /backup/certs-backup.tar.gz -C /certs .
+  -v "$(pwd)":/backup alpine \
+  sh -c 'tar czf /backup/certs-backup.tar.gz -C /certs .'
 
 # Restore
 docker run --rm -v deploy_certs:/certs \
-  -v $(pwd):/backup alpine \
-  tar xzf /backup/certs-backup.tar.gz -C /certs
+  -v "$(pwd)":/backup alpine \
+  sh -c 'tar xzf /backup/certs-backup.tar.gz -C /certs'
 ```
 
-### Disk Usage
+## Disk usage
 
 ```bash
 docker system df
@@ -185,9 +207,9 @@ docker volume ls
 
 ---
 
-## Troubleshooting
+# Troubleshooting
 
-### Ports in Use
+## Ports in use
 
 ```bash
 sudo lsof -i :80
@@ -195,7 +217,7 @@ sudo lsof -i :443
 sudo systemctl stop nginx apache2
 ```
 
-### Certificate Issues
+## Certificate issues
 
 ```bash
 docker compose exec redirector ls -la /certs
@@ -203,16 +225,16 @@ docker volume rm deploy_certs
 docker compose restart redirector
 ```
 
-### Redis Connection Failed
+## Redis connection failed
 
-* Confirm `REDIS_URL` in `.env`
-* Check managed Redis dashboard → test connection from local:
+* Verify `REDIS_URL` in `deploy/.env`
+* Quick test without installing redis-cli on host:
 
-  ```bash
-  redis-cli -u $REDIS_URL ping
-  ```
+```bash
+docker run --rm redis:7-alpine redis-cli -u "$(grep REDIS_URL deploy/.env | cut -d= -f2)" ping
+```
 
-### DNS Not Resolving
+## DNS not resolving
 
 ```bash
 dig redirector.rediredge.app
@@ -221,17 +243,17 @@ nslookup redirector.rediredge.app
 
 ---
 
-## Security Recommendations
+# Security
 
-1. **Use `rediss://` (TLS)** for Redis.
-2. **Don’t expose 6379** publicly.
-3. **Backup `/certs`** volume regularly.
-4. **Keep Docker updated.**
-5. **Use firewall + fail2ban** if public traffic is heavy.
+1. Use **`rediss://`** (TLS) for Redis.
+2. Don’t expose **6379**.
+3. Backup the **`/certs`** volume.
+4. Keep Docker updated.
+5. Use **ufw**; add **fail2ban** if needed: `sudo apt install -y fail2ban`.
 
 ---
 
-## Cost Estimate
+# Cost Estimate
 
 | VPS Plan             | CPU | RAM  | Cost (USD/mo) |
 | -------------------- | --- | ---- | ------------- |
@@ -239,4 +261,4 @@ nslookup redirector.rediredge.app
 | Medium               | 1–2 | 2 GB | ≈ $10–12      |
 | Redis Cloud/Upstash  | –   | –    | Free – $5     |
 
-**Total:** ~ $5/month for production-ready self-hosted data plane.
+**Total:** ~ **$5/mo** for a production-ready self-hosted data plane on Debian.
