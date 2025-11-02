@@ -62,6 +62,7 @@ docker compose up -d
 ```
 
 This starts:
+
 - **redirector** on ports 5499/5498
 - **redis** on port 6379
 
@@ -87,7 +88,7 @@ docker compose exec redis redis-cli -a $REDIS_PASSWORD ping
 sudo ufw allow 5499/tcp
 sudo ufw allow 5498/tcp
 
-# Allow Redis (only if control plane is external)
+# Allow Redis
 sudo ufw allow 6379/tcp
 
 # Enable firewall
@@ -132,17 +133,20 @@ curl -I http://example.com
 ## Maintenance
 
 ### View Logs
+
 ```bash
 cd ~/rediredge/deploy
 docker compose logs -f
 ```
 
 ### Restart Services
+
 ```bash
 docker compose restart
 ```
 
 ### Update Rediredge
+
 ```bash
 cd ~/rediredge
 git pull
@@ -153,6 +157,7 @@ docker compose up -d
 ```
 
 ### Backup Certificates
+
 ```bash
 # Create backup
 docker run --rm -v deploy_certs:/certs \
@@ -166,6 +171,7 @@ docker run --rm -v deploy_certs:/certs \
 ```
 
 ### Monitor Disk Usage
+
 ```bash
 docker system df
 docker volume ls
@@ -174,6 +180,7 @@ docker volume ls
 ## Troubleshooting
 
 ### Port Already in Use
+
 ```bash
 # Check what's using port 5499/5498
 sudo lsof -i :5499
@@ -185,6 +192,7 @@ sudo systemctl disable nginx
 ```
 
 ### Certificate Issues
+
 ```bash
 # Check cert cache
 docker compose exec redirector ls -la /certs
@@ -195,6 +203,7 @@ docker compose restart redirector
 ```
 
 ### Redis Connection Failed
+
 ```bash
 # Test Redis
 docker compose exec redis redis-cli -a $REDIS_PASSWORD ping
@@ -207,6 +216,7 @@ docker compose exec redis redis-cli -a $REDIS_PASSWORD KEYS '*'
 ```
 
 ### DNS Not Resolving
+
 ```bash
 # Check DNS propagation
 dig example.com
@@ -223,36 +233,10 @@ nslookup example.com
 4. **Monitor logs** for suspicious activity
 5. **Keep Docker updated**
 
-## Advanced: Systemd Service
-
-Make Docker Compose start on boot:
-
-```bash
-sudo tee /etc/systemd/system/rediredge.service > /dev/null <<EOF
-[Unit]
-Description=Rediredge Data Plane
-Requires=docker.service
-After=docker.service
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-WorkingDirectory=/home/$USER/rediredge/deploy
-ExecStart=/usr/bin/docker compose up -d
-ExecStop=/usr/bin/docker compose down
-User=$USER
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-sudo systemctl enable rediredge
-sudo systemctl start rediredge
-```
-
 ## Cost Estimate
 
 **VPS pricing (monthly):**
+
 - 1GB RAM, 1 CPU: $4-6 (Hetzner, Vultr, DigitalOcean)
 - 2GB RAM, 1 CPU: $10-12
 - Bandwidth: Usually included (1TB+)
