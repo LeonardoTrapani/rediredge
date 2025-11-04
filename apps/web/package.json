@@ -4,9 +4,10 @@
 	"private": true,
 	"scripts": {
 		"dev": "next dev --turbopack --port=3001",
-		"build": "next build",
+		"build": "bun run db:migrate && next build",
 		"start": "next start",
-		"check-types": "bunx tsc --noEmit"
+		"check-types": "bunx tsc --noEmit",
+		"db:migrate": "cd ../../packages/db && bun run db:migrate"
 	},
 	"dependencies": {
 		"@hookform/resolvers": "^5.2.2",
