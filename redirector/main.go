@@ -14,13 +14,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cohix/redicrypt"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/acme/autocert"
 )
 
 type Config struct {
 	RedisURL         string
-	CertCacheDir     string
 	HTTPAddr         string
 	HTTPSAddr        string
 	WhitelistDomains []string
@@ -44,7 +44,6 @@ func loadConfig() Config {
 
 	return Config{
 		RedisURL:         getEnv("REDIS_URL", "localhost:5497"),
-		CertCacheDir:     getEnv("CERT_CACHE_DIR", "/certs"),
 		HTTPAddr:         getEnv("HTTP_ADDR", ":5499"),
 		HTTPSAddr:        getEnv("HTTPS_ADDR", ":5498"),
 		WhitelistDomains: whitelistDomains,
@@ -198,13 +197,14 @@ func main() {
 	}
 	log.Printf("Connected to Redis at %s", opt.Addr)
 
-	if err := os.MkdirAll(config.CertCacheDir, 0o700); err != nil {
-		log.Fatal("Failed to create cert cache dir:", err)
+	certCache, err := redicrypt.RediCryptWithAddr(opt.Addr)
+	if err != nil {
+		log.Fatal("Failed to init Redis cert cache:", err)
 	}
-	log.Printf("Using cert cache dir: %s", config.CertCacheDir)
+	log.Printf("Using Redis cert cache at %s", opt.Addr)
 
 	certManager := &autocert.Manager{
-		Cache:      autocert.DirCache(config.CertCacheDir),
+		Cache:      certCache,
 		Prompt:     autocert.AcceptTOS,
 		HostPolicy: buildHostPolicy(rdb, config.WhitelistDomains),
 	}

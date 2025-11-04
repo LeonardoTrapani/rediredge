@@ -6,9 +6,4 @@ services:
       - "80:5499"
       - "443:5498"
     env_file: .env         # contains REDIS_URL=rediss://...
-    volumes:
-      - certs:/certs
     restart: unless-stopped
-
-volumes:
-  certs:
