@@ -34,7 +34,7 @@ func loadConfig() Config {
 
 	return Config{
 		RedisURL:     getEnv("REDIS_URL", "localhost:5497"),
-		CertCacheDir: getEnv("CERT_CACHE_DIR", "./certs"),
+		CertCacheDir: getEnv("CERT_CACHE_DIR", "/certs"),
 		HTTPAddr:     getEnv("HTTP_ADDR", ":5499"),
 		HTTPSAddr:    getEnv("HTTPS_ADDR", ":5498"),
 	}
