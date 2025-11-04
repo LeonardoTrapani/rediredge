@@ -1,17 +1,44 @@
 {
 	"$schema": "https://turbo.build/schema.json",
 	"ui": "tui",
+	"globalEnv": ["NEXT_RUNTIME"],
 	"tasks": {
 		"build": {
 			"dependsOn": ["^build"],
 			"inputs": ["$TURBO_DEFAULT$", ".env*"],
-			"outputs": ["dist/**", "bin/**", ".next/**", "!.next/cache/**"]
+			"outputs": ["dist/**", "bin/**", ".next/**", "!.next/cache/**"],
+			"env": [
+				"DATABASE_URL",
+				"BETTER_AUTH_SECRET",
+				"BETTER_AUTH_URL",
+				"POLAR_ACCESS_TOKEN",
+				"POLAR_SUCCESS_URL",
+				"POLAR_PRODUCT_ID",
+				"CORS_ORIGIN",
+				"REDIS_URL",
+				"HTTP_ADDR",
+				"HTTPS_ADDR",
+				"WHITELIST_DOMAINS"
+			]
 		},
 		"lint": {
 			"dependsOn": ["^lint"]
 		},
 		"check-types": {
-			"dependsOn": ["^check-types"]
+			"dependsOn": ["^check-types"],
+			"env": [
+				"DATABASE_URL",
+				"BETTER_AUTH_SECRET",
+				"BETTER_AUTH_URL",
+				"POLAR_ACCESS_TOKEN",
+				"POLAR_SUCCESS_URL",
+				"POLAR_PRODUCT_ID",
+				"CORS_ORIGIN",
+				"REDIS_URL",
+				"HTTP_ADDR",
+				"HTTPS_ADDR",
+				"WHITELIST_DOMAINS"
+			]
 		},
 		"dev": {
 			"cache": false,
@@ -19,19 +46,23 @@
 		},
 		"db:push": {
 			"cache": false,
-			"persistent": true
+			"persistent": true,
+			"env": ["DATABASE_URL"]
 		},
 		"db:studio": {
 			"cache": false,
-			"persistent": true
+			"persistent": true,
+			"env": ["DATABASE_URL"]
 		},
 		"db:migrate": {
 			"cache": false,
-			"persistent": true
+			"persistent": true,
+			"env": ["DATABASE_URL"]
 		},
 		"db:generate": {
 			"cache": false,
-			"persistent": true
+			"persistent": true,
+			"env": ["DATABASE_URL"]
 		},
 		"db:start": {
 			"cache": false,
