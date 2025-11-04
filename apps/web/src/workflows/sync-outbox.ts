@@ -5,9 +5,9 @@ import { processOutboxBatch } from "./process-outbox";
 const LOCK_KEY = "worker:sync:lock";
 const STOP_KEY = "worker:sync:stop";
 const LOCK_TTL_SECONDS = 90;
-const INITIAL_BACKOFF_MS = 1_000;
 const INCREASE_MULTIPLIER = 1.8;
-const MAX_BACKOFF_MS = 60_000;
+const INITIAL_BACKOFF_MS = 1_000;
+const MAX_BACKOFF_MS = 120_000;
 
 function withJitter(ms: number) {
 	const jitter = Math.floor(ms * 0.2 * Math.random()); // ±20%
@@ -54,8 +54,13 @@ async function outboxTick(): Promise<TickResult> {
 	return { processed: result.processed };
 }
 
+//A vercle workflow that runs fovered, sleeping from very little when there are things to process, to a lot when there are no things to process.
+//This can be triggered on server start and thanks to a lock it doesn't run multiple times
+//This ensures that on every server run there is one workflow running processing the outbox
 export async function syncOutboxWorkflow() {
 	"use workflow";
+
+	console.log("Starting syncOutboxWorkflow");
 
 	const { acquired, token } = await acquireLock(LOCK_KEY, LOCK_TTL_SECONDS);
 	if (!acquired) return; // another run owns the singleton
@@ -82,6 +87,9 @@ export async function syncOutboxWorkflow() {
 
 			// Apply jitter (±20%) and sleep -> workflows are smoothed out
 			const jittered = withJitter(backoffMs);
+			console.log(
+				`Processed ${processed}, sleeping for ${Math.ceil(jittered)}ms`,
+			);
 			await sleep(`${Math.ceil(jittered)}ms`);
 		}
 	} finally {
