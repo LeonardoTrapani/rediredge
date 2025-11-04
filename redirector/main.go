@@ -42,7 +42,7 @@ func loadConfig() Config {
 	}
 
 	return Config{
-		RedisURL:         getEnv("REDIS_URL", "localhost:5497"),
+		RedisURL:         getEnv("REDIS_URL", "redis://localhost:5497"),
 		HTTPAddr:         getEnv("HTTP_ADDR", ":5499"),
 		HTTPSAddr:        getEnv("HTTPS_ADDR", ":5498"),
 		WhitelistDomains: whitelistDomains,
@@ -207,7 +207,10 @@ func main() {
 		log.Printf("Whitelisted domains (bypass Redis): %v", config.WhitelistDomains)
 	}
 
-	opt, _ := redis.ParseURL(config.RedisURL)
+	opt, err := redis.ParseURL(config.RedisURL)
+	if err != nil {
+		log.Fatal("Failed to parse Redis URL:", err)
+	}
 	rdb := redis.NewClient(opt)
 
 	ctx := context.Background()
