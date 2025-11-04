@@ -14,7 +14,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/cohix/redicrypt"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/acme/autocert"
 )
@@ -85,6 +84,26 @@ type RedirectRule struct {
 	PreservePath  bool   `json:"preservePath"`
 	PreserveQuery bool   `json:"preserveQuery"`
 	Enabled       bool   `json:"enabled"`
+}
+
+type RedisCache struct {
+	client *redis.Client
+}
+
+func (c *RedisCache) Get(ctx context.Context, key string) ([]byte, error) {
+	val, err := c.client.Get(ctx, "cert:"+key).Bytes()
+	if err == redis.Nil {
+		return nil, autocert.ErrCacheMiss
+	}
+	return val, err
+}
+
+func (c *RedisCache) Put(ctx context.Context, key string, data []byte) error {
+	return c.client.Set(ctx, "cert:"+key, data, 0).Err()
+}
+
+func (c *RedisCache) Delete(ctx context.Context, key string) error {
+	return c.client.Del(ctx, "cert:"+key).Err()
 }
 
 type RedirectHandler struct {
@@ -197,10 +216,7 @@ func main() {
 	}
 	log.Printf("Connected to Redis at %s", opt.Addr)
 
-	certCache, err := redicrypt.RediCryptWithAddr(opt.Addr)
-	if err != nil {
-		log.Fatal("Failed to init Redis cert cache:", err)
-	}
+	certCache := &RedisCache{client: rdb}
 	log.Printf("Using Redis cert cache at %s", opt.Addr)
 
 	certManager := &autocert.Manager{
