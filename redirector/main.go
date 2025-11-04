@@ -200,6 +200,7 @@ func main() {
 
 		// Redirect HTTP to HTTPS
 		target := "https://" + r.Host + r.URL.RequestURI()
+		log.Printf("Redirecting http %s to https: %s", r.Host, target)
 		http.Redirect(w, r, target, http.StatusPermanentRedirect)
 	})
 
