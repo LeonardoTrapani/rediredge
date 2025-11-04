@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -18,10 +19,11 @@ import (
 )
 
 type Config struct {
-	RedisURL     string
-	CertCacheDir string
-	HTTPAddr     string
-	HTTPSAddr    string
+	RedisURL         string
+	CertCacheDir     string
+	HTTPAddr         string
+	HTTPSAddr        string
+	WhitelistDomains []string
 }
 
 func loadConfig() Config {
@@ -32,11 +34,20 @@ func loadConfig() Config {
 		return defaultVal
 	}
 
+	var whitelistDomains []string
+	if whitelist := getEnv("WHITELIST_DOMAINS", ""); whitelist != "" {
+		whitelistDomains = strings.Split(whitelist, ",")
+		for i := range whitelistDomains {
+			whitelistDomains[i] = strings.TrimSpace(whitelistDomains[i])
+		}
+	}
+
 	return Config{
-		RedisURL:     getEnv("REDIS_URL", "localhost:5497"),
-		CertCacheDir: getEnv("CERT_CACHE_DIR", "/certs"),
-		HTTPAddr:     getEnv("HTTP_ADDR", ":5499"),
-		HTTPSAddr:    getEnv("HTTPS_ADDR", ":5498"),
+		RedisURL:         getEnv("REDIS_URL", "localhost:5497"),
+		CertCacheDir:     getEnv("CERT_CACHE_DIR", "/certs"),
+		HTTPAddr:         getEnv("HTTP_ADDR", ":5499"),
+		HTTPSAddr:        getEnv("HTTPS_ADDR", ":5498"),
+		WhitelistDomains: whitelistDomains,
 	}
 }
 
@@ -142,10 +153,17 @@ func (h *RedirectHandler) redirect(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, location, rule.Status)
 }
 
-func buildHostPolicy(rdb *redis.Client) func(ctx context.Context, host string) error {
+func buildHostPolicy(rdb *redis.Client, whitelist []string) func(ctx context.Context, host string) error {
 	return func(ctx context.Context, host string) error {
 		// Remove port if present
 		hostWithoutPort := strings.Split(host, ":")[0]
+
+		// Check whitelist first
+		if slices.Contains(whitelist, hostWithoutPort) {
+			log.Printf("Domain %s is whitelisted, allowing cert", hostWithoutPort)
+			return nil
+		}
+
 		domain, subdomain := getDomainAndSubdomain(hostWithoutPort)
 
 		field := domain
@@ -167,6 +185,10 @@ func buildHostPolicy(rdb *redis.Client) func(ctx context.Context, host string) e
 func main() {
 	config := loadConfig()
 
+	if len(config.WhitelistDomains) > 0 {
+		log.Printf("Whitelisted domains (bypass Redis): %v", config.WhitelistDomains)
+	}
+
 	opt, _ := redis.ParseURL(config.RedisURL)
 	rdb := redis.NewClient(opt)
 
@@ -184,7 +206,7 @@ func main() {
 	certManager := &autocert.Manager{
 		Cache:      autocert.DirCache(config.CertCacheDir),
 		Prompt:     autocert.AcceptTOS,
-		HostPolicy: buildHostPolicy(rdb),
+		HostPolicy: buildHostPolicy(rdb, config.WhitelistDomains),
 	}
 
 	handler := &RedirectHandler{redis: rdb}
