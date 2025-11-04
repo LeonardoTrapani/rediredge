@@ -18,11 +18,10 @@ import (
 )
 
 type Config struct {
-	RedisAddr     string
-	RedisPassword string
-	CertCacheDir  string
-	HTTPAddr      string
-	HTTPSAddr     string
+	RedisURL     string
+	CertCacheDir string
+	HTTPAddr     string
+	HTTPSAddr    string
 }
 
 func loadConfig() Config {
@@ -34,11 +33,10 @@ func loadConfig() Config {
 	}
 
 	return Config{
-		RedisAddr:     getEnv("REDIS_ADDR", "localhost:5497"),
-		RedisPassword: getEnv("REDIS_PASSWORD", ""),
-		CertCacheDir:  getEnv("CERT_CACHE_DIR", "./certs"),
-		HTTPAddr:      getEnv("HTTP_ADDR", ":5499"),
-		HTTPSAddr:     getEnv("HTTPS_ADDR", ":5498"),
+		RedisURL:     getEnv("REDIS_URL", "localhost:5497"),
+		CertCacheDir: getEnv("CERT_CACHE_DIR", "./certs"),
+		HTTPAddr:     getEnv("HTTP_ADDR", ":5499"),
+		HTTPSAddr:    getEnv("HTTPS_ADDR", ":5498"),
 	}
 }
 
@@ -169,16 +167,14 @@ func buildHostPolicy(rdb *redis.Client) func(ctx context.Context, host string) e
 func main() {
 	config := loadConfig()
 
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     config.RedisAddr,
-		Password: config.RedisPassword,
-	})
+	opt, _ := redis.ParseURL(config.RedisURL)
+	rdb := redis.NewClient(opt)
 
 	ctx := context.Background()
 	if err := rdb.Ping(ctx).Err(); err != nil {
 		log.Fatal("Failed to connect to Redis:", err)
 	}
-	log.Printf("Connected to Redis at %s", config.RedisAddr)
+	log.Printf("Connected to Redis at %s", opt.Addr)
 
 	if err := os.MkdirAll(config.CertCacheDir, 0o700); err != nil {
 		log.Fatal("Failed to create cert cache dir:", err)

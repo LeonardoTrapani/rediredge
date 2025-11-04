@@ -50,7 +50,7 @@ cd rediredge/redirector
 
 ## Step 3: Configure environment
 
-Create `.env` **in `rediredge/deploy/`** with your managed Redis URL (TLS):
+Create `.env` **in `rediredge/redirector/`** with your managed Redis URL (TLS):
 
 ```bash
 mkdir -p deploy
@@ -61,39 +61,10 @@ EOF
 
 ---
 
-## Step 4: Docker Compose file
-
-Create `rediredge/deploy/docker-compose.yml`:
-
-```yaml
-services:
-  redirector:
-    build: ../redirector
-    ports:
-      - "80:5499"    # HTTP
-      - "443:5498"   # HTTPS
-    env_file: .env
-    volumes:
-      - certs:/certs
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:5499/health"]
-      interval: 30s
-      timeout: 3s
-      start_period: 15s
-
-volumes:
-  certs:
-```
-
-> Note: run all `docker compose` commands from `~/rediredge/deploy`.
-
----
-
 ## Step 5: Build & start
 
 ```bash
-cd ~/rediredge/deploy
+cd ~/rediredge/redirector
 docker compose up -d --build
 ```
 
