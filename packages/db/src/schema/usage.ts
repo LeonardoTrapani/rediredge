@@ -9,6 +9,7 @@ import {
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
+import { redirect } from "./domains";
 
 /* ---------------- Usage Tracking ---------------- */
 
@@ -19,6 +20,9 @@ export const usagePeriod = pgTable(
 		userId: text("user_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
+		redirectId: text("redirect_id")
+			.notNull()
+			.references(() => redirect.id, { onDelete: "cascade" }),
 
 		// Period tracking (hourly buckets)
 		periodStart: timestamp("period_start", { withTimezone: true }).notNull(),
@@ -46,9 +50,13 @@ export const usagePeriod = pgTable(
 	},
 	(table) => [
 		index("idx_usage_user").on(table.userId),
+		index("idx_usage_redirect").on(table.redirectId),
 		index("idx_usage_period_start").on(table.periodStart),
 		index("idx_usage_polar_reported").on(table.polarReported),
-		uniqueIndex("uniq_usage_user_period").on(table.userId, table.periodStart),
+		uniqueIndex("uniq_usage_redirect_period").on(
+			table.redirectId,
+			table.periodStart,
+		),
 	],
 );
 
@@ -56,4 +64,8 @@ export const usagePeriod = pgTable(
 
 export const usagePeriodRelations = relations(usagePeriod, ({ one }) => ({
 	user: one(user, { fields: [usagePeriod.userId], references: [user.id] }),
+	redirect: one(redirect, {
+		fields: [usagePeriod.redirectId],
+		references: [redirect.id],
+	}),
 }));

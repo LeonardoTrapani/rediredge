@@ -43,6 +43,13 @@
 			"when": 1762341743405,
 			"tag": "0005_motionless_mandroid",
 			"breakpoints": true
+		},
+		{
+			"idx": 6,
+			"version": "7",
+			"when": 1762347074382,
+			"tag": "0006_brave_the_anarchist",
+			"breakpoints": true
 		}
 	]
 }

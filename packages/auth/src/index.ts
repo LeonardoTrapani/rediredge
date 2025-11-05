@@ -47,6 +47,8 @@ const options = {
 export const auth: ReturnType<typeof betterAuth> = betterAuth(options);
 
 export { polarClient } from "./lib/payments";
+export type { ReportUsageParams, ReportUsageResult } from "./lib/usage";
+export { reportUsageToPolar } from "./lib/usage";
 
 export async function checkActiveSubscription(userId: string) {
 	try {

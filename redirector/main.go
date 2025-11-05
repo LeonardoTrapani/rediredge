@@ -79,11 +79,14 @@ func (rw *responseWriter) Header() http.Header {
 }
 
 type RedirectRule struct {
+	Id            string `json:"id"`
 	To            string `json:"to"`
 	Status        int    `json:"status"`
 	PreservePath  bool   `json:"preservePath"`
 	PreserveQuery bool   `json:"preserveQuery"`
 	Enabled       bool   `json:"enabled"`
+	Version       int    `json:"version"`
+	UserId        string `json:"userId"`
 }
 
 type RedisCache struct {
@@ -108,6 +111,22 @@ func (c *RedisCache) Delete(ctx context.Context, key string) error {
 
 type RedirectHandler struct {
 	redis *redis.Client
+}
+
+func (h *RedirectHandler) incrementUsage(userId, redirectId string) {
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		key := fmt.Sprintf("usage:%s:%s", userId, redirectId)
+		count, err := h.redis.HIncrBy(ctx, key, "redirects", 1).Result()
+		if err != nil {
+			log.Printf("Failed to increment usage: %v", err)
+			return
+		}
+
+		log.Printf("Usage incremented: user=%s redirect=%s count=%d", userId, redirectId, count)
+	}()
 }
 
 func loggingMiddleware(next http.HandlerFunc) http.HandlerFunc {
@@ -158,6 +177,10 @@ func (h *RedirectHandler) redirect(w http.ResponseWriter, r *http.Request) {
 	if !rule.Enabled {
 		http.NotFound(w, r)
 		return
+	}
+
+	if rule.UserId != "" && rule.Id != "" {
+		h.incrementUsage(rule.UserId, rule.Id)
 	}
 
 	location := rule.To
