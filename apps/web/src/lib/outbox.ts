@@ -62,8 +62,6 @@ async function upsertRedirectToRedis(event: OutboxEvent): Promise<void> {
 export async function processOutboxBatch(
 	limit = BATCH_LIMIT,
 ): Promise<ProcessingResult> {
-	"use step";
-
 	const result: ProcessingResult = {
 		processed: 0,
 		failed: 0,

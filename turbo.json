@@ -18,7 +18,8 @@
 				"REDIS_URL",
 				"HTTP_ADDR",
 				"HTTPS_ADDR",
-				"WHITELIST_DOMAINS"
+				"WHITELIST_DOMAINS",
+				"CRON_SECRET"
 			]
 		},
 		"lint": {
@@ -37,7 +38,8 @@
 				"REDIS_URL",
 				"HTTP_ADDR",
 				"HTTPS_ADDR",
-				"WHITELIST_DOMAINS"
+				"WHITELIST_DOMAINS",
+				"CRON_SECRET"
 			]
 		},
 		"dev": {
