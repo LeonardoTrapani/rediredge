@@ -8,6 +8,7 @@ import {
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { domain } from "./domains";
+import { usagePeriod } from "./usage";
 
 /* ---------------- Auth ---------------- */
 
@@ -110,6 +111,7 @@ export const userRelations = relations(user, ({ many }) => ({
 	domains: many(domain),
 	accounts: many(account),
 	sessions: many(session),
+	usagePeriods: many(usagePeriod),
 }));
 
 export const accountRelations = relations(account, ({ one }) => ({

@@ -67,6 +67,7 @@ export const redirectRouter = router({
 							tx,
 							updateInput,
 							domainData.apex,
+							domainData.userId,
 							hasActiveSubscription,
 						);
 						updateResults.push(result);
@@ -98,6 +99,7 @@ export const redirectRouter = router({
 							deleteInput,
 							domainData.apex,
 							subdomain,
+							domainData.userId,
 						);
 						deleteResults.push(result);
 					}

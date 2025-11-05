@@ -170,6 +170,7 @@ export const domainRouter = router({
 						{ id: redirectData.id },
 						domainData.apex,
 						redirectData.subdomain,
+						domainData.userId,
 					);
 				}
 
@@ -214,6 +215,7 @@ export const domainRouter = router({
 						tx,
 						{ id: redirect.id, enabled: true },
 						domainData.apex,
+						domainData.userId,
 						hasActiveSubscription,
 					);
 				}
@@ -255,6 +257,7 @@ export const domainRouter = router({
 						tx,
 						{ id: redirect.id, enabled: false },
 						domainData.apex,
+						domainData.userId,
 						false,
 					);
 				}

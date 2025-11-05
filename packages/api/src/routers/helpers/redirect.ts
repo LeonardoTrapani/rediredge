@@ -15,7 +15,7 @@ import {
 
 export async function createRedirectHelper(
 	tx: DbTransaction,
-	domainData: { id: string; apex: string },
+	domainData: { id: string; apex: string; userId: string },
 	input: z.infer<typeof createRedirectSchema>,
 	hasActiveSubscription: boolean,
 ) {
@@ -70,6 +70,7 @@ export async function createRedirectHelper(
 		apex: domainData.apex,
 		id: created.id,
 		subdomain: created.subdomain,
+		userId: domainData.userId,
 		destinationUrl: created.destinationUrl,
 		code: created.code,
 		preservePath: created.preservePath,
@@ -92,6 +93,7 @@ export async function updateRedirectHelper(
 	tx: DbTransaction,
 	updateInput: z.infer<typeof updateRedirectSchema>,
 	domainApex: string,
+	userId: string,
 	hasActiveSubscription: boolean,
 ) {
 	const { id: _id, ...updates } = updateInput;
@@ -125,6 +127,7 @@ export async function updateRedirectHelper(
 		id: updated.id,
 		apex: domainApex,
 		subdomain: updated.subdomain,
+		userId: userId,
 		destinationUrl: updated.destinationUrl,
 		code: updated.code,
 		preservePath: updated.preservePath,
@@ -148,6 +151,7 @@ export async function deleteRedirectHelper(
 	deleteInput: z.infer<typeof deleteRedirectSchema>,
 	apex: string,
 	subdomain: string,
+	userId: string,
 ) {
 	await tx.delete(redirect).where(eq(redirect.id, deleteInput.id));
 
@@ -155,6 +159,7 @@ export async function deleteRedirectHelper(
 		id: deleteInput.id,
 		apex,
 		subdomain,
+		userId,
 	});
 
 	await tx.insert(outbox).values({

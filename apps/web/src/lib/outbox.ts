@@ -34,6 +34,7 @@ async function upsertRedirectToRedis(event: OutboxEvent): Promise<void> {
 		preserveQuery: payload.preserveQuery,
 		enabled: payload.enabled,
 		version: payload.version,
+		userId: payload.userId,
 	};
 
 	// Atomic check-and-set using Lua script to prevent race conditions

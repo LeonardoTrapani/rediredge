@@ -5,6 +5,7 @@ export const redirectPayloadBaseSchema = z.object({
 	id: z.uuid(),
 	apex: z.string().min(1),
 	subdomain: z.string().min(1),
+	userId: z.uuid(),
 	destinationUrl: z.url(),
 	code: z.enum(redirectCode.enumValues),
 	preservePath: z.boolean(),
