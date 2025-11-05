@@ -6,7 +6,6 @@ import {
 	pgTable,
 	text,
 	timestamp,
-	uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
 import { redirect } from "./domains";
@@ -24,21 +23,12 @@ export const usagePeriod = pgTable(
 			.notNull()
 			.references(() => redirect.id, { onDelete: "cascade" }),
 
-		// Period tracking (hourly buckets)
-		periodStart: timestamp("period_start", { withTimezone: true }).notNull(),
-		periodEnd: timestamp("period_end", { withTimezone: true }).notNull(),
-
 		// Aggregated count for period
 		redirectCount: integer("redirect_count").notNull().default(0),
 
 		// Polar sync tracking
 		polarReported: boolean("polar_reported").notNull().default(false),
 		polarReportedAt: timestamp("polar_reported_at", { withTimezone: true }),
-		polarCustomerId: text("polar_customer_id"), // Store for reference
-
-		// Error tracking
-		lastError: text("last_error"),
-		retryCount: integer("retry_count").notNull().default(0),
 
 		// Timestamps
 		createdAt: timestamp("created_at", { withTimezone: true })
@@ -51,12 +41,7 @@ export const usagePeriod = pgTable(
 	(table) => [
 		index("idx_usage_user").on(table.userId),
 		index("idx_usage_redirect").on(table.redirectId),
-		index("idx_usage_period_start").on(table.periodStart),
 		index("idx_usage_polar_reported").on(table.polarReported),
-		uniqueIndex("uniq_usage_redirect_period").on(
-			table.redirectId,
-			table.periodStart,
-		),
 	],
 );
 

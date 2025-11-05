@@ -1,30 +1,16 @@
 import { reportUsageToPolar } from "@rediredge/auth";
-import { and, db, eq, sql } from "@rediredge/db";
+import { db, eq } from "@rediredge/db";
 import { redirect } from "@rediredge/db/schema/domains";
 import { usagePeriod } from "@rediredge/db/schema/usage";
 import { redis } from "@/lib/redis";
 
-const BATCH_LIMIT = 100;
+const BATCH_LIMIT = 300;
 
 type ProcessingResult = {
 	processed: number;
 	failed: number;
 	errors: string[];
 };
-
-/**
- * Gets the start and end of the previous completed hour
- */
-function getPreviousHourBucket(): { periodStart: Date; periodEnd: Date } {
-	const now = new Date();
-	const periodEnd = new Date(now);
-	periodEnd.setMinutes(0, 0, 0); // Round down to start of current hour
-
-	const periodStart = new Date(periodEnd);
-	periodStart.setHours(periodStart.getHours() - 1); // Go back one hour
-
-	return { periodStart, periodEnd };
-}
 
 /**
  * Scans Redis for usage keys and groups by user+redirect
@@ -69,9 +55,6 @@ async function scanUsageKeys(): Promise<
 	return usageMap;
 }
 
-/**
- * Processes usage data for the previous hour
- */
 export async function processUsageBatch(
 	limit = BATCH_LIMIT,
 ): Promise<ProcessingResult> {
@@ -81,27 +64,17 @@ export async function processUsageBatch(
 		errors: [],
 	};
 
-	const { periodStart, periodEnd } = getPreviousHourBucket();
-
-	// Scan Redis for all usage keys
+	// Get usage keys for ALL redirects from redis
 	const usageMap = await scanUsageKeys();
 
 	if (usageMap.size === 0) {
 		return result;
 	}
 
-	// Group by userId for Polar reporting
-	const userTotals = new Map<string, number>();
-	for (const { userId, count } of usageMap.values()) {
-		userTotals.set(userId, (userTotals.get(userId) || 0) + count);
-	}
-
-	// Process each redirect's usage
 	const entries = Array.from(usageMap.entries()).slice(0, limit);
 
 	for (const [redisKey, { userId, redirectId, count }] of entries) {
 		try {
-			// Verify redirect exists
 			const redirectRecords = await db
 				.select()
 				.from(redirect)
@@ -109,111 +82,41 @@ export async function processUsageBatch(
 				.limit(1);
 
 			if (redirectRecords.length === 0) {
-				result.errors.push(`Redirect ${redirectId} not found`);
-				result.failed++;
-				continue;
+				throw new Error(`Redirect record not found for ${redirectId}`);
 			}
 
 			await db.transaction(async (tx) => {
-				// Upsert usage_period record
-				const periodId = `${redirectId}_${periodStart.getTime()}`;
+				const periodId = `${redirectId}_${Date.now()}`;
 
-				const existingRecords = await tx
-					.select()
-					.from(usagePeriod)
-					.where(
-						and(
-							eq(usagePeriod.redirectId, redirectId),
-							eq(usagePeriod.periodStart, periodStart),
-						),
-					)
-					.limit(1);
+				await tx.insert(usagePeriod).values({
+					id: periodId,
+					userId,
+					redirectId,
+					polarReportedAt: new Date(),
+					polarReported: true,
+					redirectCount: count,
+				});
 
-				const existing = existingRecords.length > 0 ? existingRecords[0] : null;
+				const polarResult = await reportUsageToPolar({
+					userId,
+					timestamp: new Date(),
+					count,
+					redirectId,
+				});
 
-				if (existing) {
-					// Update existing record
-					await tx
-						.update(usagePeriod)
-						.set({
-							redirectCount: existing.redirectCount + count,
-							updatedAt: new Date(),
-						})
-						.where(eq(usagePeriod.id, existing.id));
-				} else {
-					// Insert new record
-					await tx.insert(usagePeriod).values({
-						id: periodId,
-						userId,
-						redirectId,
-						periodStart,
-						periodEnd,
-						redirectCount: count,
-						polarReported: false,
-					});
+				if (polarResult.inserted <= 0) {
+					throw new Error("Failed to report usage to Polar");
 				}
-			});
 
-			await redis.del(redisKey);
-			result.processed++;
+				await redis.del(redisKey);
+				result.processed++;
+			});
 		} catch (error) {
 			const errorMessage =
 				error instanceof Error ? error.message : "Unknown error";
 			result.errors.push(`${redirectId}: ${errorMessage}`);
 			result.failed++;
 			console.error(`[usage-worker] Failed to process ${redisKey}:`, error);
-		}
-	}
-
-	// Report aggregated usage to Polar per user
-	for (const [userId, totalCount] of userTotals.entries()) {
-		try {
-			const polarResult = await reportUsageToPolar({
-				userId,
-				periodStart,
-				periodEnd,
-				totalCount,
-			});
-
-			if (polarResult.success) {
-				// Mark all user's records as polar reported
-				await db
-					.update(usagePeriod)
-					.set({
-						polarReported: true,
-						polarReportedAt: new Date(),
-					})
-					.where(
-						and(
-							eq(usagePeriod.userId, userId),
-							eq(usagePeriod.periodStart, periodStart),
-						),
-					);
-			} else {
-				// Update error tracking
-				await db
-					.update(usagePeriod)
-					.set({
-						lastError: polarResult.error || "Polar reporting failed",
-						retryCount: sql`${usagePeriod.retryCount} + 1`,
-					})
-					.where(
-						and(
-							eq(usagePeriod.userId, userId),
-							eq(usagePeriod.periodStart, periodStart),
-						),
-					);
-
-				result.errors.push(`Polar: ${polarResult.error}`);
-			}
-		} catch (error) {
-			const errorMessage =
-				error instanceof Error ? error.message : "Unknown error";
-			result.errors.push(`Polar reporting for ${userId}: ${errorMessage}`);
-			console.error(
-				`[usage-worker] Failed to report to Polar for user ${userId}:`,
-				error,
-			);
 		}
 	}
 

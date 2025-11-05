@@ -2,15 +2,13 @@ import { polarClient } from "./payments";
 
 export interface ReportUsageParams {
 	userId: string;
-	periodStart: Date;
-	periodEnd: Date;
-	totalCount: number;
+	timestamp: Date;
+	count: number;
+	redirectId: string;
 }
 
 export interface ReportUsageResult {
-	success: boolean;
-	error?: string;
-	inserted?: number;
+	inserted: number;
 }
 
 /**
@@ -21,34 +19,21 @@ export interface ReportUsageResult {
 export async function reportUsageToPolar(
 	params: ReportUsageParams,
 ): Promise<ReportUsageResult> {
-	const { userId, periodStart, periodEnd, totalCount } = params;
-
-	try {
-		const result = await polarClient.events.ingest({
-			events: [
-				{
-					name: "redirect",
-					externalCustomerId: userId,
-					timestamp: periodEnd,
-					metadata: {
-						period_start: periodStart.toISOString(),
-						period_end: periodEnd.toISOString(),
-						redirect_count: totalCount,
-					},
+	const result = await polarClient.events.ingest({
+		events: [
+			{
+				name: "redirect",
+				externalCustomerId: params.userId,
+				timestamp: params.timestamp,
+				metadata: {
+					redirect_count: params.count,
+					redirect_id: params.redirectId,
 				},
-			],
-		});
+			},
+		],
+	});
 
-		return {
-			success: true,
-			inserted: result.inserted,
-		};
-	} catch (error) {
-		const errorMessage =
-			error instanceof Error ? error.message : "Unknown error";
-		return {
-			success: false,
-			error: errorMessage,
-		};
-	}
+	return {
+		inserted: result.inserted,
+	};
 }
