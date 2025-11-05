@@ -1,10 +1,9 @@
 import { reportUsageToPolar } from "@rediredge/auth";
-import { db, eq } from "@rediredge/db";
-import { redirect } from "@rediredge/db/schema/domains";
+import { db } from "@rediredge/db";
 import { usagePeriod } from "@rediredge/db/schema/usage";
 import { redis } from "@/lib/redis";
 
-const BATCH_LIMIT = 300;
+const BATCH_LIMIT = 100;
 
 type ProcessingResult = {
 	processed: number;
@@ -12,18 +11,66 @@ type ProcessingResult = {
 	errors: string[];
 };
 
-/**
- * Scans Redis for usage keys and groups by user+redirect
- */
-async function scanUsageKeys(): Promise<
-	Map<string, { userId: string; redirectId: string; count: number }>
-> {
-	const usageMap = new Map<
-		string,
-		{ userId: string; redirectId: string; count: number }
-	>();
+async function processUsageKey(
+	key: string,
+	userId: string,
+	redirectId: string,
+	redirectCount: number,
+): Promise<void> {
+	await db.transaction(async (tx) => {
+		const periodId = `${redirectId}_${Date.now()}`;
+
+		await tx.insert(usagePeriod).values({
+			id: periodId,
+			userId,
+			redirectId,
+			polarReportedAt: new Date(),
+			polarReported: true,
+			redirectCount,
+		});
+
+		const polarResult = await reportUsageToPolar({
+			userId,
+			timestamp: new Date(),
+			count: redirectCount,
+			redirectId,
+		});
+
+		if (polarResult.inserted <= 0) {
+			throw new Error("Failed to report usage to Polar");
+		}
+	});
+
+	// Atomically decrement by the count we just processed.
+	// If new redirects arrived during processing, they remain for next batch.
+	// If count becomes <= 0, delete key to keep Redis clean.
+	const luaScript = `
+		local count = tonumber(ARGV[1])
+		local current = tonumber(redis.call('HGET', KEYS[1], 'redirects')) or 0
+		local newCount = current - count
+
+		if newCount <= 0 then
+			redis.call('DEL', KEYS[1])
+			return 0
+		else
+			redis.call('HSET', KEYS[1], 'redirects', newCount)
+			return newCount
+		end
+	`;
+
+	await redis.eval(luaScript, 1, key, redirectCount.toString());
+}
+
+export async function processUsageBatch(): Promise<ProcessingResult> {
+	const result: ProcessingResult = {
+		processed: 0,
+		failed: 0,
+		errors: [],
+	};
 
 	let cursor = "0";
+	let processedCount = 0;
+
 	do {
 		const [nextCursor, keys] = await redis.scan(
 			cursor,
@@ -35,6 +82,8 @@ async function scanUsageKeys(): Promise<
 		cursor = nextCursor;
 
 		for (const key of keys) {
+			if (processedCount >= BATCH_LIMIT) break;
+
 			// Key format: usage:{userId}:{redirectId}
 			const parts = key.split(":");
 			if (parts.length !== 3) continue;
@@ -42,83 +91,25 @@ async function scanUsageKeys(): Promise<
 			const [, userId, redirectId] = parts;
 			const count = await redis.hget(key, "redirects");
 
-			if (count && Number.parseInt(count, 10) > 0) {
-				usageMap.set(key, {
-					userId,
-					redirectId,
-					count: Number.parseInt(count, 10),
-				});
-			}
-		}
-	} while (cursor !== "0");
+			if (!count || Number.parseInt(count, 10) <= 0) continue;
 
-	return usageMap;
-}
+			const redirectCount = Number.parseInt(count, 10);
 
-export async function processUsageBatch(
-	limit = BATCH_LIMIT,
-): Promise<ProcessingResult> {
-	const result: ProcessingResult = {
-		processed: 0,
-		failed: 0,
-		errors: [],
-	};
-
-	// Get usage keys for ALL redirects from redis
-	const usageMap = await scanUsageKeys();
-
-	if (usageMap.size === 0) {
-		return result;
-	}
-
-	const entries = Array.from(usageMap.entries()).slice(0, limit);
-
-	for (const [redisKey, { userId, redirectId, count }] of entries) {
-		try {
-			const redirectRecords = await db
-				.select()
-				.from(redirect)
-				.where(eq(redirect.id, redirectId))
-				.limit(1);
-
-			if (redirectRecords.length === 0) {
-				throw new Error(`Redirect record not found for ${redirectId}`);
-			}
-
-			await db.transaction(async (tx) => {
-				const periodId = `${redirectId}_${Date.now()}`;
-
-				await tx.insert(usagePeriod).values({
-					id: periodId,
-					userId,
-					redirectId,
-					polarReportedAt: new Date(),
-					polarReported: true,
-					redirectCount: count,
-				});
-
-				const polarResult = await reportUsageToPolar({
-					userId,
-					timestamp: new Date(),
-					count,
-					redirectId,
-				});
-
-				if (polarResult.inserted <= 0) {
-					throw new Error("Failed to report usage to Polar");
-				}
-
-				await redis.del(redisKey);
+			try {
+				await processUsageKey(key, userId, redirectId, redirectCount);
 				result.processed++;
-			});
-		} catch (error) {
-			const errorMessage =
-				error instanceof Error ? error.message : "Unknown error";
-			result.errors.push(`${redirectId}: ${errorMessage}`);
-			result.failed++;
-			console.error(`[usage-worker] Failed to process ${redisKey}:`, error);
+				processedCount++;
+			} catch (error) {
+				const errorMessage =
+					error instanceof Error ? error.message : "Unknown error";
+				result.errors.push(`${redirectId}: ${errorMessage}`);
+				result.failed++;
+				console.error(`[usage-worker] Failed to process ${key}:`, error);
+			}
 		}
-	}
+
+		if (processedCount >= BATCH_LIMIT) break;
+	} while (cursor !== "0");
 
 	return result;
 }
