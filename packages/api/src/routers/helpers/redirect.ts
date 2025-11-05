@@ -106,6 +106,20 @@ export async function updateRedirectHelper(
 		});
 	}
 
+	// Fetch existing redirect to capture old subdomain before update
+	const [existing] = await tx
+		.select()
+		.from(redirect)
+		.where(eq(redirect.id, updateInput.id))
+		.limit(1);
+
+	if (!existing) {
+		throw new TRPCError({
+			code: "NOT_FOUND",
+			message: "Redirect not found",
+		});
+	}
+
 	const [updated] = await tx
 		.update(redirect)
 		.set({
@@ -134,6 +148,8 @@ export async function updateRedirectHelper(
 		preserveQuery: updated.preserveQuery,
 		enabled: updated.enabled,
 		version: updated.version,
+		oldApex: domainApex,
+		oldSubdomain: existing.subdomain,
 	});
 
 	await tx.insert(outbox).values({

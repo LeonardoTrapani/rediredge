@@ -16,7 +16,10 @@ export const redirectPayloadBaseSchema = z.object({
 
 export const redirectCreatedPayloadSchema = redirectPayloadBaseSchema;
 
-export const redirectUpdatedPayloadSchema = redirectPayloadBaseSchema;
+export const redirectUpdatedPayloadSchema = redirectPayloadBaseSchema.extend({
+	oldApex: z.string().min(1),
+	oldSubdomain: z.string().min(1),
+});
 
 export const redirectDeletedPayloadSchema = z.object({
 	id: z.uuid(),

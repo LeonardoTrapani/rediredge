@@ -24,9 +24,6 @@ async function upsertRedirectToRedis(event: OutboxEvent): Promise<void> {
 		return;
 	}
 
-	// Both redirect.created and redirect.updated are handled identically:
-	// upsert to Redis with version-based idempotency
-
 	const redirectRule = {
 		to: payload.destinationUrl,
 		status: Number.parseInt(payload.code, 10),
@@ -37,8 +34,23 @@ async function upsertRedirectToRedis(event: OutboxEvent): Promise<void> {
 		userId: payload.userId,
 	};
 
-	// Atomic check-and-set using Lua script to prevent race conditions
+	// Check if subdomain or apex changed (only for redirect.updated)
+	let oldField = "";
+	if (
+		topic === "redirect.updated" &&
+		(payload.oldSubdomain !== payload.subdomain ||
+			payload.oldApex !== payload.apex)
+	) {
+		oldField = `${payload.oldApex}:${payload.oldSubdomain}`;
+	}
+
+	// Atomic upsert: delete old key if changed, check version, set new key
 	const luaScript = `
+		local oldField = ARGV[3]
+		if oldField ~= "" then
+			redis.call('HDEL', KEYS[1], oldField)
+		end
+
 		local existing = redis.call('HGET', KEYS[1], KEYS[2])
 		if existing then
 			local parsed = cjson.decode(existing)
@@ -57,6 +69,7 @@ async function upsertRedirectToRedis(event: OutboxEvent): Promise<void> {
 		field,
 		JSON.stringify(redirectRule),
 		payload.version.toString(),
+		oldField,
 	);
 }
 
