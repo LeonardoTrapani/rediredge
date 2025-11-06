@@ -22,11 +22,14 @@
 		"typescript": "^5"
 	},
 	"dependencies": {
-		"better-auth": "catalog:",
 		"@polar-sh/better-auth": "catalog:",
 		"@polar-sh/sdk": "^0.34.16",
+		"@react-email/tailwind": "^1.2.2",
+		"@rediredge/db": "workspace:*",
+		"@types/react": "^19.2.2",
+		"better-auth": "catalog:",
 		"dotenv": "catalog:",
-		"zod": "catalog:",
-		"@rediredge/db": "workspace:*"
+		"react": "^19.2.0",
+		"zod": "catalog:"
 	}
 }
