@@ -9,11 +9,10 @@
 ## Highlights
 
 * **Instant redirects, zero cold starts.** A tiny Go redirector returns 30x in a single lookup.
-* **Built‑in TLS, no proxy needed.** Go redirector handles HTTPS directly via autocert—faster, simpler, one binary.
-* **Automatic HTTPS built‑in.** ACME HTTP‑01 with zero config, on‑demand cert issuance.
+* **Automatic HTTPS built‑in.** Go redirector handles HTTPS for all your domains and subdomains directly via autocert—faster, simpler, one binary.
 * **Easy to self‑host.** One‑command **Docker Compose** templates; multiple templates will be available.
 * **Hosted or self‑hosted.** Use our **hosted, horizontally‑scaled** service (no setup), or run it yourself for free.
-* **Simple & powerful.** Clean Next.js dashboard & API, 307/308 method‑preserving redirects, path/query controls.
+* **Simple & powerful.** Clean dashboard & API, 307/308 method‑preserving redirects, path/query controls.
 * **Portable & open.** Docker‑friendly, cloud‑agnostic, MIT‑licensed.
 
 ---
@@ -23,9 +22,9 @@
 Rediredge pairs a **Go data plane** with a **Next.js control plane**. The control plane manages users, domains, and redirect rules; the data plane serves production traffic with a single Go service that handles TLS and issues instant 30x responses based on a redis database (for extremely fast lookups).
 
 * **Data plane (edge):**
-  * **Go redirector** — handles TLS via autocert (ACME HTTP‑01), reads a compact lookup model from Redis, and returns the redirect immediately.
+  * **Go redirector** — handles TLS via autocert, reads a compact lookup model from Redis, and returns the redirect immediately.
 * **Control plane (dashboard & API):**
-  * **Next.js** app for auth, domains, and redirects; persists canonical configuration and publishes a read‑optimized view for the edge.
+  * **Next.js** app for auth, domains, tracking, and redirects; persists canonical configuration and publishes a read‑optimized view for the edge.
 
 ---
 
@@ -73,13 +72,14 @@ flowchart LR
 * Canonical config lives in Postgres; the edge reads a compact **Redis** view.
 * TLS is handled directly by the **Go redirector** via autocert (ACME HTTP‑01); the redirector is stateless.
 * Redirect analytics are logged asynchronously to Redis; a worker processes them in batches to update the database and Polar billing.
-* Syncing via the Sync Worker ensures data consistency from Postgres to Redis for configurations.
+* Syncing via the Sync and Outbox Workers ensures data consistency from Postgres to Redis for configurations.
 
 **Deployment flexibility**
 
 * **Control plane** (Next.js, Postgres, Sync Worker): hosted by us or fully self‑hosted.
 * **Data plane** (Go redirector, Redis): hosted by us (paid) or self‑hosted (free/cheaper).
 * Self‑hosters run the data plane locally while connecting to our hosted control plane for management.
+* Easily **horizontally** scale, just put a load balancer and spin how many instances of the go redirector you want
 
 ---
 
@@ -101,8 +101,6 @@ Your Server (self-hosted):
 │  Go Redirector :5499/5498        │
 │  (exposed) - Handles TLS via     │
 │  autocert                        │
-│    ↓                             │
-│  Redis :6379 (exposed + AUTH)    │
 └────────────────┬─────────────────┘
                  │
             Syncs from...
@@ -123,37 +121,13 @@ Your Server (self-hosted):
 
 **Setup**
 
-> **📚 Full deployment guides available [here](/deploy/README.md)
+> **📚 Full deployment guides available [here](/DEPLOY.md)
 
-Run multiple instances of the Go redirector; place them behind your load balancer. Redis can be scaled with replicas or clustering.
+Run multiple instances of the Go redirector; place them behind your load balancer. Redis can be scaled with replicas or clustering, or some solutions like Upstash.
 
 ## How syncing works (Postgres → Redis)
 
 We use the **Outbox Pattern** so writes are durable and Redis updates are reliable and idempotent.
-
-```mermaid
-sequenceDiagram
-  autonumber
-  participant UI as Dashboard (Next.js)
-  participant API as API
-  participant PG as Postgres (canonical)
-  participant SW as Sync Worker
-  participant R as Redis (read model)
-  participant GO as Go Redirector
-
-  UI->>API: Create/Update redirect
-  API->>PG: Tx: write canonical rows
-  API->>PG: Tx: insert outbox event (topic + payload)
-  PG-->>API: Commit OK
-
-  SW->>PG: Fetch unprocessed events
-  SW->>R: Idempotent UPSERT (HSET map:<apex>:<sub> {..., version})
-  SW->>PG: Mark event processed
-
-  GO->>R: HGET map:<apex>:<sub>
-  R-->>GO: dest, code, flags, version
-  GO-->>C: 30x redirect
-```
 
 **Key guarantees**
 
@@ -242,10 +216,9 @@ bun run db:migrate
 
 * **0.1 (hosted preview):** core redirector with built‑in TLS, dashboard (Next.js), TXT domain verification, usage metering → Polar billing**.
 * **0.1.5**: redirect verification
-* **0.2**: self‑host Docker Compose template
-* **0.3**: easy horizontal scaling
-* **0.4**: metrics dashboard, analytics
-* **0.5** additional self‑host templates (Kubernetes), rebuild job, usage analytics pipeline, basic metrics export.
+* **0.2**: self‑hosting  configuration
+* **0.3**: metrics dashboard, analytics
+* **0.4** additional self‑host templates (Kubernetes), rebuild job, usage analytics pipeline, basic metrics export.
 * **1.0:** full docs, stable product.
 
 > Roadmap is indicative; items may shuffle as we gather feedback.

@@ -52,6 +52,8 @@ cd rediredge/redirector
 
 Create `.env` **in `rediredge/redirector/`** with your managed Redis URL (TLS):
 
+We reccomend using something like Upstash for serverless redis (to easily horizontal scaling when needed), but any redis instance is fine.
+
 ```bash
 mkdir -p deploy
 cat > deploy/.env <<'EOF'
