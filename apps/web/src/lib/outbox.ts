@@ -15,9 +15,7 @@ type ProcessingResult = {
 async function upsertRedirectToRedis(event: OutboxEvent): Promise<void> {
 	const { topic, payload } = event;
 
-	const field = payload.subdomain
-		? `${payload.apex}:${payload.subdomain}`
-		: payload.apex;
+	const field = `${payload.apex}:${payload.subdomain}`;
 
 	if (topic === "redirect.deleted") {
 		await redis.hdel("redirects", field);
@@ -25,6 +23,7 @@ async function upsertRedirectToRedis(event: OutboxEvent): Promise<void> {
 	}
 
 	const redirectRule = {
+		id: payload.id,
 		to: payload.destinationUrl,
 		status: Number.parseInt(payload.code, 10),
 		preservePath: payload.preservePath,
