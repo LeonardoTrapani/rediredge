@@ -4,6 +4,8 @@ import * as schema from "@rediredge/db/schema/auth";
 import { type BetterAuthOptions, betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
+import { magicLink } from "better-auth/plugins";
+import { sendMagicLinkEmail } from "./lib/email";
 import { polarClient } from "./lib/payments";
 
 const options = {
@@ -12,8 +14,15 @@ const options = {
 		schema: schema,
 	}),
 	trustedOrigins: [process.env.CORS_ORIGIN || ""],
-	emailAndPassword: {
-		enabled: true,
+	socialProviders: {
+		github: {
+			clientId: process.env.GITHUB_CLIENT_ID || "",
+			clientSecret: process.env.GITHUB_CLIENT_SECRET || "",
+		},
+		google: {
+			clientId: process.env.GOOGLE_CLIENT_ID || "",
+			clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+		},
 	},
 	session: {
 		cookieCache: {
@@ -22,6 +31,11 @@ const options = {
 		},
 	},
 	plugins: [
+		magicLink({
+			sendMagicLink: async ({ email, url }) => {
+				await sendMagicLinkEmail(email, url);
+			},
+		}),
 		polar({
 			client: polarClient,
 			createCustomerOnSignUp: true,

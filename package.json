@@ -39,10 +39,13 @@
 	},
 	"dependencies": {
 		"@hookform/resolvers": "^5.2.2",
+		"@react-email/components": "^0.5.7",
 		"@vercel/analytics": "^1.5.0",
 		"@vercel/edge-config": "^1.4.3",
 		"dotenv": "^17.2.2",
 		"ioredis": "^5.8.2",
+		"react-email": "^4.3.2",
+		"resend": "^6.4.1",
 		"workflow": "^4.0.1-beta.3",
 		"zod": "^4.1.11"
 	},

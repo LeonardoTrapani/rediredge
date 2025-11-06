@@ -1,0 +1,15 @@
+{
+	"runId": "wrun_01K9B6YJTH22YNGMDJHCZFJ3VM",
+	"deploymentId": "dpl_embedded",
+	"status": "failed",
+	"workflowName": "workflow//src/workflows/sync-outbox.ts//syncOutboxWorkflow",
+	"executionContext": {
+		"traceCarrier": {}
+	},
+	"input": [[]],
+	"startedAt": "2025-11-05T23:52:07.309Z",
+	"createdAt": "2025-11-05T23:52:05.713Z",
+	"updatedAt": "2025-11-05T23:52:07.328Z",
+	"error": "ReferenceError: Workflow \"workflow//src/workflows/sync-outbox.ts//syncOutboxWorkflow\" must be a function, but got \"undefined\" instead",
+	"completedAt": "2025-11-05T23:52:07.328Z"
+}
