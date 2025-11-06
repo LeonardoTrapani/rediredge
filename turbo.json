@@ -19,7 +19,13 @@
 				"HTTP_ADDR",
 				"HTTPS_ADDR",
 				"WHITELIST_DOMAINS",
-				"CRON_SECRET"
+				"CRON_SECRET",
+				"RESEND_API_KEY",
+				"EMAIL_FROM",
+				"GITHUB_CLIENT_ID",
+				"GITHUB_CLIENT_SECRET",
+				"GOOGLE_CLIENT_ID",
+				"GOOGLE_CLIENT_SECRET"
 			]
 		},
 		"lint": {
@@ -39,7 +45,13 @@
 				"HTTP_ADDR",
 				"HTTPS_ADDR",
 				"WHITELIST_DOMAINS",
-				"CRON_SECRET"
+				"CRON_SECRET",
+				"RESEND_API_KEY",
+				"EMAIL_FROM",
+				"GITHUB_CLIENT_ID",
+				"GITHUB_CLIENT_SECRET",
+				"GOOGLE_CLIENT_ID",
+				"GOOGLE_CLIENT_SECRET"
 			]
 		},
 		"dev": {
