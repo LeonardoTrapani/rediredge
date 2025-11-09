@@ -4,6 +4,8 @@
 
 > **Status:** Pre‑alpha — interfaces and storage schemas may change.
 
+![G5GpDEcWgAAiSoe](https://github.com/user-attachments/assets/bfe7c610-c598-4b9f-9529-21d680f40bf9)
+
 ---
 
 ## Highlights
