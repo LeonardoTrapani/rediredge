@@ -1,33 +1,33 @@
 {
-	"name": "@rediredge/api",
-	"exports": {
-		".": {
-			"types": "./dist/index.d.ts",
-			"default": "./src/index.ts"
-		},
-		"./*": {
-			"types": "./dist/*.d.ts",
-			"default": "./src/*.ts"
-		}
-	},
-	"type": "module",
-	"scripts": {
-		"build": "tsdown",
-		"check-types": "bunx tsc --noEmit"
-	},
-	"devDependencies": {
-		"tsdown": "catalog:"
-	},
-	"peerDependencies": {
-		"typescript": "^5"
-	},
-	"dependencies": {
-		"@trpc/server": "catalog:",
-		"@trpc/client": "catalog:",
-		"next": "15.5.7",
-		"dotenv": "catalog:",
-		"zod": "catalog:",
-		"@rediredge/auth": "workspace:*",
-		"@rediredge/db": "workspace:*"
-	}
+  "name": "@rediredge/api",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./src/*.ts"
+    }
+  },
+  "type": "module",
+  "scripts": {
+    "build": "tsdown",
+    "check-types": "bunx tsc --noEmit"
+  },
+  "devDependencies": {
+    "tsdown": "catalog:"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@trpc/server": "catalog:",
+    "@trpc/client": "catalog:",
+    "next": "15.5.9",
+    "dotenv": "catalog:",
+    "zod": "catalog:",
+    "@rediredge/auth": "workspace:*",
+    "@rediredge/db": "workspace:*"
+  }
 }
