@@ -750,7 +750,7 @@ export function DomainForm({
 										</div>
 										<div>
 											<span className="text-muted-foreground">Value:</span>{" "}
-											redirector.rediredge.app
+											redirector.leotrapani.com
 										</div>
 										<div>
 											<span className="text-muted-foreground">TTL:</span> 3600
