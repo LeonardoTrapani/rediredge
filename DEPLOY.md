@@ -103,13 +103,13 @@ sudo ufw status
 Point your domain/subdomain to your VPS IP:
 
 ```
-redirector.rediredge.app.   IN  A   <YOUR_SERVER_IP>
+redirector.leotrapani.com.   IN  A   <YOUR_SERVER_IP>
 ```
 
 Check:
 
 ```bash
-dig +short redirector.rediredge.app
+dig +short redirector.leotrapani.com
 ```
 
 ---
@@ -210,8 +210,8 @@ docker run --rm redis:7-alpine redis-cli -u "$(grep REDIS_URL deploy/.env | cut 
 ## DNS not resolving
 
 ```bash
-dig redirector.rediredge.app
-nslookup redirector.rediredge.app
+dig redirector.leotrapani.com
+nslookup redirector.leotrapani.com
 ```
 
 ---
